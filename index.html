@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Eco da Lâmina</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <div id="game"></div>
+
+  <!-- Efeitos de tela -->
+  <div id="vignette"></div>
+  <div id="flash"></div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="crosshair"><div class="dot"></div><div id="parry-ring"></div></div>
+    <div id="hud-top">
+      <div id="room-name">Andar 1 · Sala 1</div>
+      <div id="objective">Derrote todos os inimigos</div>
+    </div>
+    <div id="hud-bottom-left">
+      <div id="hp-wrap"><div id="hp-ghost"></div><div id="hp-bar"></div><span id="hp-text">100 / 100</span></div>
+      <div id="dash-pips"></div>
+      <div id="fury"></div>
+    </div>
+    <div id="hud-bottom-right">
+      <div id="weapon-name">Espada</div>
+      <div id="ecos">◈ 0</div>
+    </div>
+    <div id="boon-list"></div>
+    <div id="callout"></div>
+    <div id="dmg-layer"></div>
+    <div id="boss-bar" class="hidden"><div id="boss-name">O Arauto</div><div id="boss-hp"><div id="boss-hp-fill"></div></div><div id="boss-posture"><div id="boss-posture-fill"></div></div></div>
+  </div>
+
+  <!-- Menu principal -->
+  <div id="menu" class="screen">
+    <h1>ECO DA LÂMINA</h1>
+    <p class="sub">Roguelite em primeira pessoa · apare, esquive, sobreviva</p>
+    <div class="weapons" id="weapon-select"></div>
+    <div class="row">
+      <button id="btn-start" class="primary">Iniciar Run</button>
+      <button id="btn-meta">Santuário (melhorias)</button>
+      <button id="btn-help">Como jogar</button>
+    </div>
+    <div id="meta-ecos" class="muted"></div>
+  </div>
+
+  <!-- Melhorias permanentes -->
+  <div id="meta" class="screen hidden">
+    <h2>Santuário dos Ecos</h2>
+    <p class="muted">Ecos guardados entre runs. Gaste para ficar mais forte.</p>
+    <div id="meta-list" class="cards"></div>
+    <button id="btn-meta-back">Voltar</button>
+  </div>
+
+  <!-- Ajuda -->
+  <div id="help" class="screen hidden">
+    <h2>Como jogar</h2>
+    <div class="help-grid">
+      <div><kbd>WASD</kbd> mover · <kbd>Mouse</kbd> olhar</div>
+      <div><kbd>Botão esq.</kbd> atacar (combo de 3)</div>
+      <div><kbd>Botão dir.</kbd> ou <kbd>F</kbd> aparar</div>
+      <div><kbd>Shift</kbd> esquiva (dash com invencibilidade)</div>
+      <div><kbd>Espaço</kbd> pular (ondas de choque!)</div>
+      <div><kbd>Esc</kbd> pausar</div>
+    </div>
+    <h3>Leia os ataques</h3>
+    <ul>
+      <li><b class="red">Brilho vermelho</b> = ataque aparável. Apare no instante do golpe para quebrar a postura e refletir projéteis.</li>
+      <li><b class="orange">Brilho laranja</b> = ataque inaparável. Esquive ou saia do alcance.</li>
+      <li><b class="cyan">Anel no chão</b> = onda de choque. Pule ou esquive por cima.</li>
+      <li>Esquivar no último instante ativa a <b>Esquiva Perfeita</b>: câmera lenta + próximo golpe crítico.</li>
+      <li>Postura cheia (barra amarela) = inimigo <b>quebrado</b>. Golpes nele causam dano triplo.</li>
+    </ul>
+    <h3>Salas</h3>
+    <ul>
+      <li><b>Combate</b> e <b>Elite</b>: derrote todos.</li>
+      <li><b>Sobrevivência</b>: aguente até o tempo acabar.</li>
+      <li><b>Duelo</b>: só aparos e golpes em inimigos quebrados causam dano.</li>
+      <li><b>Chuva de Flechas</b>: arqueiros em torres — reflita as flechas.</li>
+      <li><b>Santuário</b>: descanso e bênção grátis.</li>
+      <li><b>Chefe</b>: no fim de cada andar.</li>
+    </ul>
+    <button id="btn-help-back">Voltar</button>
+  </div>
+
+  <!-- Escolha de bênção -->
+  <div id="choice" class="screen hidden">
+    <h2 id="choice-title">Escolha uma bênção</h2>
+    <div id="choice-cards" class="cards"></div>
+    <p class="muted">Clique ou tecle 1 · 2 · 3</p>
+  </div>
+
+  <!-- Pausa -->
+  <div id="pause" class="screen hidden">
+    <h2>Pausado</h2>
+    <div id="pause-boons" class="muted"></div>
+    <div class="row">
+      <button id="btn-resume" class="primary">Continuar</button>
+      <button id="btn-quit">Abandonar run</button>
+    </div>
+    <label class="muted">Sensibilidade <input id="sens" type="range" min="0.5" max="3" step="0.1" value="1.2" /></label>
+  </div>
+
+  <!-- Fim -->
+  <div id="end" class="screen hidden">
+    <h2 id="end-title">Você caiu</h2>
+    <div id="end-stats"></div>
+    <button id="btn-end" class="primary">Voltar ao menu</button>
+  </div>
+
+  <div id="click-to-play" class="hidden">Clique para jogar</div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
