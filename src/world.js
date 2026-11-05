@@ -110,6 +110,24 @@ export class Room {
       });
     } else if (layout === 'boss') {
       for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; addPillar(Math.cos(a) * (this.half - 2.5), Math.sin(a) * (this.half - 2.5), 0.8); }
+    } else if (layout === 'hub') {
+      // Pátio do Mosteiro do Eco: o Sino partido no centro, colunas em volta
+      for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + Math.PI / 8; addPillar(Math.cos(a) * (this.half - 3), Math.sin(a) * (this.half - 3), 0.7); }
+      const stone = new THREE.MeshStandardMaterial({ color: theme.wall, roughness: 0.85 });
+      const bronze = new THREE.MeshStandardMaterial({ color: 0x8a6a30, metalness: 0.8, roughness: 0.35, emissive: theme.accent, emissiveIntensity: 0.08 });
+      const ped = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 0.6, 16), stone); ped.position.set(0, 0.3, -4); this.group.add(ped);
+      // Sino em três pedaços
+      const bellGeo = new THREE.CylinderGeometry(0.9, 1.6, 2.4, 20, 1, true, 0, Math.PI * 2 / 3 - 0.08);
+      for (let i = 0; i < 3; i++) {
+        const piece = new THREE.Mesh(bellGeo, bronze);
+        piece.material.side = THREE.DoubleSide;
+        piece.position.set(Math.cos(i * 2.1) * 0.35, 1.8 + i * 0.15, -4 + Math.sin(i * 2.1) * 0.35);
+        piece.rotation.set(0.08 * (i - 1), i * Math.PI * 2 / 3, 0.1 * (i - 1));
+        this.group.add(piece);
+      }
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(2.0, 0.04, 6, 48), stripMat); halo.rotation.x = Math.PI / 2; halo.position.set(0, 0.62, -4); this.group.add(halo);
+      this.pillars.push({ x: 0, z: -4, r: 2.4, h: 4 });
+      this.bellLight = new THREE.PointLight(theme.accent, 30, 10, 1.5); this.bellLight.position.set(0, 3, -4); this.group.add(this.bellLight);
     }
     // 'open' = sem pilares
 

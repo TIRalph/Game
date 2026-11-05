@@ -6,7 +6,7 @@
   <title>Eco da Lâmina</title>
   <link rel="stylesheet" href="style.css" />
   <script type="importmap">
-    { "imports": { "three": "./vendor/three.module.min.js" } }
+    { "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }
   </script>
 </head>
 <body>
@@ -41,14 +41,15 @@
   <!-- Menu principal -->
   <div id="menu" class="screen">
     <h1>ECO DA LÂMINA</h1>
-    <p class="sub">Roguelite em primeira pessoa · apare, esquive, sobreviva</p>
-    <div class="weapons" id="weapon-select"></div>
+    <p class="sub">O Sino do Eco foi partido. Desça às Profundezas e traga os fragmentos de volta.</p>
+    <p id="menu-path" class="muted"></p>
     <div class="row">
-      <button id="btn-start" class="primary">Iniciar Run</button>
+      <button id="btn-start" class="primary">Jogar</button>
       <button id="btn-meta">Santuário (melhorias)</button>
       <button id="btn-help">Como jogar</button>
     </div>
     <div id="meta-ecos" class="muted"></div>
+    <div id="loading" class="muted hidden">Carregando modelos…</div>
   </div>
 
   <!-- Melhorias permanentes -->
@@ -64,12 +65,19 @@
     <h2>Como jogar</h2>
     <div class="help-grid">
       <div><kbd>WASD</kbd> mover · <kbd>Mouse</kbd> olhar</div>
-      <div><kbd>Botão esq.</kbd> atacar (combo de 3)</div>
-      <div><kbd>Botão dir.</kbd> ou <kbd>F</kbd> aparar</div>
+      <div><kbd>Botão esq.</kbd> atacar / lançar (ritmo de 3)</div>
+      <div><kbd>Botão dir.</kbd> ou <kbd>F</kbd> aparar (selo ou guarda)</div>
+      <div><kbd>E</kbd> falar / interagir</div>
       <div><kbd>Shift</kbd> esquiva (dash com invencibilidade)</div>
       <div><kbd>Espaço</kbd> pular (ondas de choque!)</div>
       <div><kbd>Esc</kbd> pausar</div>
     </div>
+    <h3>Caminhos</h3>
+    <ul>
+      <li><b>Mão Aberta (Mago)</b>: primeira pessoa. Dardos arcanos à distância; o 3º do ritmo explode. O selo rúnico apara golpes e reflete projéteis.</li>
+      <li><b>Punho Fechado (Punhos)</b>: terceira pessoa. Combos de soco que miram o inimigo mais próximo; o 3º golpe abala o chão. +1 esquiva.</li>
+      <li>Troque de caminho falando com o Mestre Oren no mosteiro.</li>
+    </ul>
     <h3>Leia os ataques</h3>
     <ul>
       <li><b class="red">Brilho vermelho</b> = ataque aparável. Apare no instante do golpe para quebrar a postura e refletir projéteis.</li>
@@ -103,7 +111,7 @@
     <div id="pause-boons" class="muted"></div>
     <div class="row">
       <button id="btn-resume" class="primary">Continuar</button>
-      <button id="btn-quit">Abandonar run</button>
+      <button id="btn-quit">Abandonar</button>
     </div>
     <label class="muted">Sensibilidade <input id="sens" type="range" min="0.5" max="3" step="0.1" value="1.2" /></label>
   </div>
@@ -112,8 +120,22 @@
   <div id="end" class="screen hidden">
     <h2 id="end-title">Você caiu</h2>
     <div id="end-stats"></div>
-    <button id="btn-end" class="primary">Voltar ao menu</button>
+    <div class="row">
+      <button id="btn-end" class="primary">Voltar ao Mosteiro</button>
+      <button id="btn-end-menu">Menu principal</button>
+    </div>
   </div>
+
+  <!-- Diálogo -->
+  <div id="dialogue" class="hidden">
+    <div class="dlg-box">
+      <div id="dlg-name"></div>
+      <div id="dlg-text"></div>
+      <div id="dlg-choices"></div>
+      <div id="dlg-hint">Clique, Espaço ou E para continuar</div>
+    </div>
+  </div>
+  <div id="prompt" class="hidden"></div>
 
   <div id="click-to-play" class="hidden">Clique para jogar</div>
 

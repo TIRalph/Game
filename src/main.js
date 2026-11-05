@@ -1,18 +1,25 @@
 import { Game } from './game.js';
 import { initAudio } from './audio.js';
-import { WEAPONS, META_UPGRADES, writeSave } from './data.js';
+import { CLASSES, META_UPGRADES, writeSave } from './data.js';
+import { preloadModels } from './models.js';
 
 const $ = (id) => document.getElementById(id);
 const screens = ['menu', 'meta', 'help', 'choice', 'pause', 'end'];
+let metaReturn = null;
 function show(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
 function hideAll() { for (const s of screens) $(s).classList.add('hidden'); }
 
 let choiceHandler = null;
 let choiceItems = [];
-let selectedWeapon = 'espada';
 
 const ui = {
   showHUD(on) { $('hud').classList.toggle('hidden', !on); if (on) hideAll(); },
+  prompt(t) {
+    const el = $('prompt');
+    el.classList.toggle('hidden', !t);
+    if (t) el.textContent = t;
+  },
+  openMeta(onClose) { metaReturn = onClose; renderMeta(); show('meta'); },
   weapon(t) { $('weapon-name').textContent = t; },
   roomName(t) { $('room-name').textContent = t; },
   objective(t) { if ($('objective').textContent !== t) $('objective').textContent = t; },
@@ -68,7 +75,7 @@ const ui = {
       el.firstChild.style.width = (!full && i === p.dashCharges) ? (p.dashTimer / st.dashRecharge * 100) + '%' : '0%';
     }
     $('fury').textContent = st.fury && p.fury > 0 ? `FÚRIA x${p.fury} (+${p.fury * 10}% dano)` : (p.critNext ? 'PRÓXIMO GOLPE CRÍTICO' : '');
-    $('ecos').textContent = '◈ ' + game.run.ecos;
+    $('ecos').textContent = '◈ ' + (game.run.isHub ? game.save.ecos : game.run.ecos);
     $('parry-ring').classList.toggle('on', p.isParrying());
     if (game.boss && !game.boss.dead) {
       $('boss-hp-fill').style.width = (game.boss.hp / game.boss.hpMax * 100) + '%';
@@ -87,26 +94,11 @@ function pickChoice(i) {
 const game = new Game($('game'), ui);
 window.game = game; // útil para depuração
 
-function renderWeapons() {
+function renderMenu() {
   const save = game.save;
-  $('weapon-select').innerHTML = Object.values(WEAPONS).map(w => {
-    const locked = !save.unlocked[w.id];
-    return `<div class="card ${locked ? 'locked' : ''} ${selectedWeapon === w.id ? 'sel' : ''}" data-w="${w.id}">
-      <div class="t">${w.name}</div>
-      <div class="d">${w.desc}</div>
-      <div class="k">${locked ? `Bloqueada · desbloquear por ◈ ${w.unlock}` : `Dano ${w.damage} · aparo ${Math.round(w.parryWindow * 1000)}ms`}</div>
-    </div>`;
-  }).join('');
-  $('weapon-select').querySelectorAll('.card').forEach(el => el.addEventListener('click', () => {
-    const id = el.dataset.w, w = WEAPONS[id];
-    if (!save.unlocked[id]) {
-      if (save.ecos >= w.unlock) { save.ecos -= w.unlock; save.unlocked[id] = true; writeSave(save); }
-      else return;
-    }
-    selectedWeapon = id;
-    renderWeapons();
-  }));
-  $('meta-ecos').textContent = `◈ ${save.ecos} Ecos · Runs: ${save.runs} · Vitórias: ${save.wins}`;
+  const cls = save.story.classe ? CLASSES[save.story.classe] : null;
+  $('menu-path').textContent = cls ? `Caminho atual: ${cls.path} (${cls.name})` : 'Um novo aprendiz chega ao Mosteiro do Eco.';
+  $('meta-ecos').textContent = `◈ ${save.ecos} Ecos · Expedições: ${save.runs} · Vitórias: ${save.wins}`;
 }
 
 function renderMeta() {
@@ -134,18 +126,22 @@ function renderMeta() {
 
 function toMenu() {
   game.quitToMenu();
-  renderWeapons();
+  renderMenu();
   show('menu');
 }
 
-$('btn-start').onclick = () => { initAudio(); hideAll(); game.startRun(selectedWeapon); };
-$('btn-meta').onclick = () => { renderMeta(); show('meta'); };
-$('btn-meta-back').onclick = () => { renderWeapons(); show('menu'); };
+$('btn-start').onclick = () => { initAudio(); hideAll(); game.enterHub(); };
+$('btn-meta').onclick = () => { metaReturn = null; renderMeta(); show('meta'); };
+$('btn-meta-back').onclick = () => {
+  if (metaReturn) { const cb = metaReturn; metaReturn = null; hideAll(); cb(); return; }
+  renderMenu(); show('menu');
+};
 $('btn-help').onclick = () => show('help');
 $('btn-help-back').onclick = () => show('menu');
 $('btn-resume').onclick = () => game.resume();
-$('btn-quit').onclick = () => { if (game.run) game.endRun(false); };
-$('btn-end').onclick = toMenu;
+$('btn-quit').onclick = () => { if (game.run && game.run.isHub) toMenu(); else if (game.run) game.endRun(false); };
+$('btn-end').onclick = () => { hideAll(); game.enterHub(game.save.story.last); };
+$('btn-end-menu').onclick = toMenu;
 $('sens').oninput = (e) => { game.input.sensitivity = +e.target.value; };
 
 addEventListener('keydown', (e) => {
@@ -155,5 +151,11 @@ addEventListener('keydown', (e) => {
 // Clicar no jogo recupera o pointer lock se ele se perder fora da pausa
 $('game').addEventListener('click', () => { if (game.state === 'playing' && !game.input.locked) game.input.lock(); });
 
-renderWeapons();
+renderMenu();
 show('menu');
+
+// Carrega os .glb listados em MODEL_MANIFEST (se houver) antes de liberar o jogo.
+$('btn-start').disabled = true;
+$('loading').classList.remove('hidden');
+preloadModels((k, key) => { $('loading').textContent = `Carregando modelos… ${Math.round(k * 100)}% (${key})`; })
+  .finally(() => { $('btn-start').disabled = false; $('loading').classList.add('hidden'); });

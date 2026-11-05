@@ -1,6 +1,21 @@
 # Eco da Lâmina
 
-Roguelite de ação em primeira pessoa focado em **aparo (parry)**, **esquiva no tempo certo** e salas com estilos de jogo diferentes. Feito com Three.js, roda direto no navegador, sem etapa de build.
+Roguelite de ação focado em **aparo (parry)**, **esquiva no tempo certo** e salas com estilos de jogo diferentes, com uma história que liga as expedições. Feito com Three.js, roda direto no navegador, sem etapa de build.
+
+O projeto é uma **base**: todos os personagens são placeholders procedurais que podem ser trocados por modelos `.glb` sem mexer na lógica. Veja [docs/MODELOS.md](docs/MODELOS.md).
+
+## História
+
+O Sino do Eco guardava a memória do mundo até o Arauto parti-lo em três. Você sobe ao Mosteiro do Eco e encontra o **Mestre Oren**, último guardião do Sino. Nas Profundezas, quem cai vira eco e volta ao mosteiro, e é isso que justifica o ciclo do roguelite. Os diálogos ficam em `src/story.js`.
+
+## Caminhos (classes)
+
+| Caminho | Câmera | Estilo |
+|---|---|---|
+| **Mão Aberta — Mago** | 1ª pessoa, mãos visíveis | Dardos arcanos à distância (o 3º explode), selo rúnico que apara e reflete, lampejo rápido |
+| **Punho Fechado — Punhos** | 3ª pessoa, câmera de ombro | Combos de soco com mira automática no inimigo próximo, guarda, +1 esquiva, 3º golpe abala o chão |
+
+O caminho é escolhido no prólogo com o Mestre e pode ser trocado falando com ele no mosteiro.
 
 ## Como rodar
 
@@ -16,8 +31,9 @@ Qualquer servidor estático serve (precisa ser via HTTP por causa dos módulos E
 | Ação | Tecla |
 |---|---|
 | Mover / olhar | WASD / mouse |
-| Atacar (combo de 3) | Botão esquerdo |
-| Aparar | Botão direito ou F |
+| Atacar / lançar (ritmo de 3) | Botão esquerdo |
+| Aparar (selo ou guarda) | Botão direito ou F |
+| Falar / interagir | E |
 | Esquiva (dash com invencibilidade) | Shift (ou Q) |
 | Pular | Espaço |
 | Pausar | Esc |
@@ -32,7 +48,7 @@ Qualquer servidor estático serve (precisa ser via HTTP por causa dos módulos E
 
 ## Estrutura da run
 
-3 andares (Cripta Esquecida, Forja Rubra, Abismo Glacial), cada um com 5 salas + chefe. Depois de cada sala você escolhe o próximo portal:
+Do Mosteiro (hub, com o Mestre e um boneco de treino) você desce pelo portal. São 3 andares (Cripta Esquecida, Forja Rubra, Abismo Glacial), cada um com 5 salas + chefe. O Arauto fala antes e depois de cada luta. Depois de cada sala você escolhe o próximo portal:
 
 | Sala | Gameplay |
 |---|---|
@@ -40,15 +56,13 @@ Qualquer servidor estático serve (precisa ser via HTTP por causa dos módulos E
 | Elite | Inimigos reforçados, recompensa rara |
 | Sobrevivência | Aguentar o cronômetro com spawns infinitos |
 | Duelo | Só aparos e golpes em inimigos atordoados causam dano |
-| Chuva de Flechas | Arqueiros em torres, só morrem com flechas refletidas |
+| Chuva de Flechas | Arqueiros em torres: reflita as flechas (o mago também acerta com dardos) |
 | Santuário | Cura + bênção grátis |
 | Chefe | O Arauto: combos, investidas, ondas de choque, leques de projéteis e fase 2 |
 
 **Bênçãos** (21) modificam a run: aparo vampírico, eco de choque, esquiva explosiva, reflexo teleguiado, fúria rítmica, lâmina projetada etc.
 
-**Armas**: Espada (equilibrada), Adagas Gêmeas (rápidas, +1 esquiva) e Martelo (lento, dano de postura x2, onda no 3º golpe). Adagas e Martelo se desbloqueiam com Ecos.
-
-**Progressão permanente**: Ecos ganhos em cada run são gastos no Santuário dos Ecos (vida, dano, janela de aparo, mais opções de bênção, revive). O save fica no `localStorage`.
+**Progressão permanente**: Ecos ganhos em cada run são gastos no Santuário dos Ecos (pelo menu ou falando com o Mestre): vida, dano, janela de aparo, mais opções de bênção, revive. O save fica no `localStorage`.
 
 ## Código
 
@@ -56,13 +70,17 @@ Qualquer servidor estático serve (precisa ser via HTTP por causa dos módulos E
 index.html        UI (menus, HUD)
 style.css
 src/main.js       inicialização e telas
-src/game.js       loop, estados, salas, resolução de combate
-src/player.js     controle FPS, ataque, aparo, esquiva, viewmodel
+src/game.js       loop, estados, mosteiro, salas, resolução de combate
+src/player.js     jogador + câmeras (1ª pessoa do mago, 3ª pessoa dos punhos)
+src/models.js     camada de modelos: manifesto .glb + placeholders procedurais
+src/story.js      lore e diálogos
+src/dialogue.js   caixa de diálogo com escolhas
 src/enemies.js    inimigos, ataques, projéteis, ondas de choque
-src/world.js      geração das salas e portais
-src/data.js       armas, bênçãos, melhorias, tipos de sala
+src/world.js      geração das salas, mosteiro e portais
+src/data.js       classes, bênçãos, melhorias, tipos de sala
 src/fx.js         partículas, números de dano, efeitos de tela
 src/audio.js      efeitos sonoros sintetizados (WebAudio)
+assets/models/    coloque aqui os .glb (ver docs/MODELOS.md)
 ```
 
 Para depurar, o objeto `window.game` fica exposto no console.

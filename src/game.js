@@ -5,7 +5,40 @@ import { Room } from './world.js';
 import { Player } from './player.js';
 import { Enemy, Projectile, Shockwave } from './enemies.js';
 import { sfx } from './audio.js';
-import { WEAPONS, BOONS, baseStats, ROOM_TYPES, FLOORS, loadSave, writeSave } from './data.js';
+import { CLASSES, BOONS, baseStats, ROOM_TYPES, FLOORS, HUB_THEME, loadSave, writeSave } from './data.js';
+import { createCharacter } from './models.js';
+import { DialogueUI } from './dialogue.js';
+import { CONSELHOS, RETORNOS, SAUDACOES } from './story.js';
+
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+
+// Personagem não-hostil (ex.: Mestre Oren). Olha para o jogador e gesticula ao falar.
+class Npc {
+  constructor(game, key, name, pos, procOpts) {
+    this.game = game;
+    this.name = name;
+    this.pos = pos.clone();
+    this.model = createCharacter(key, procOpts);
+    this.model.root.position.copy(pos);
+    this.facing = 0;
+    this.talking = false;
+    game.scene.add(this.model.root);
+  }
+  update(dt) {
+    const p = this.game.player;
+    if (p) {
+      const want = Math.atan2(-(p.pos.x - this.pos.x), -(p.pos.z - this.pos.z));
+      let d = want - this.facing;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      if (p.pos.distanceTo(this.pos) < 8) this.facing += d * Math.min(1, dt * 3);
+    }
+    this.model.root.rotation.y = this.facing;
+    this.model.play(this.talking ? 'talk' : 'idle');
+    this.model.update(dt);
+  }
+  dispose() { this.model.dispose(); }
+}
 
 const ROOMS_PER_FLOOR = 5; // + 1 sala de chefe
 const SLOWMO_SCALE = 0.25;
@@ -32,6 +65,8 @@ export class Game {
     this.input = new Input(this.canvas);
     this.fx = new FX(this.scene, this.camera);
     this.save = loadSave();
+    this.dialogue = new DialogueUI();
+    this.npcs = [];
 
     this.state = 'menu';
     this.enemies = [];
@@ -63,36 +98,130 @@ export class Game {
   }
 
   // ---------- Run ----------
-  startRun(weaponId) {
-    const weapon = WEAPONS[weaponId];
+  currentClass() { return this.save.story.classe ? CLASSES[this.save.story.classe] : null; }
+
+  // Recria o jogador (troca de classe muda a câmera e o modelo).
+  makePlayer(cls, stats) {
+    const old = this.player;
+    if (old) old.dispose();
+    this.player = new Player(this, cls, stats);
+    if (old) { this.player.pos.copy(old.pos); this.player.yaw = old.yaw; this.player.pitch = old.pitch; this.player.facing = old.yaw; }
+    this.ui.weapon(cls ? `${cls.name} · ${cls.path}` : 'Aprendiz');
+  }
+
+  // ---------- Mosteiro (hub) ----------
+  enterHub(reason = null) {
     this.run = {
-      weapon, floor: 0, roomIndex: 0, type: 'combate',
+      isHub: true, type: 'hub', floor: 0, roomIndex: 0, stats: baseStats(this.save.meta), boons: [], ecos: 0,
+      kills: 0, parries: 0, perfectDodges: 0, rooms: 0, startTime: performance.now(),
+    };
+    this.buildRoom('hub', HUB_THEME);
+    this.player = null;
+    this.makePlayer(this.currentClass(), this.run.stats);
+    const p = this.player;
+    this.roomState = { hub: true, cleared: true, rewardGiven: true, doorsOpen: true, duel: false, started: 0, waves: [] };
+    this.room.addDoors([{ type: 'profundezas', rewardText: 'Descer' }], ROOM_TYPES);
+    this.master = new Npc(this, 'mestre', 'Mestre Oren', new THREE.Vector3(-3.2, 0, -0.5), {
+      height: 1.75, color: 0x4a3a2e, skin: 0xc89a78, robe: 0x6a5030, beard: 0xe8e4dc, hood: 0x3a2c20, weapon: 'staff', eyeColor: 0xe8c27a,
+    });
+    this.npcs.push(this.master);
+    this.room.pillars.push({ x: this.master.pos.x, z: this.master.pos.z, r: 0.5, h: 2 });
+    this.spawnEnemy('boneco', new THREE.Vector3(5, 0, 1), { stationary: true });
+    // Começa perto do Mestre, olhando para ele
+    p.pos.set(-1.2, 0, 3.2);
+    p.yaw = Math.atan2(-(this.master.pos.x - p.pos.x), -(this.master.pos.z - p.pos.z));
+    p.facing = p.yaw; p.pitch = 0.05;
+    this.ui.showHUD(true);
+    this.ui.boons([]);
+    this.ui.roomName('Mosteiro do Eco');
+    this.ui.objective(this.currentClass() ? 'Fale com o Mestre ou desça pelo portal' : '');
+    this.state = 'playing';
+    this.input.lock();
+    const st = this.save.story;
+    if (!st.prologo) this.startDialogue('prologo', () => { st.prologo = true; writeSave(this.save); this.ui.objective('Pratique no boneco ou desça pelo portal'); });
+    else if (reason === 'morte') this.startDialogue('retorno_morte');
+    else if (reason === 'vitoria') this.startDialogue('retorno_vitoria');
+  }
+
+  // ---------- Diálogos ----------
+  startDialogue(id, onDone) {
+    this.state = 'dialogue';
+    this.input.unlock();
+    if (this.player) this.player.locked = true;
+    if (this.master && /mestre|prologo|retorno|conselho|trocar|licao|escolha|sobre/.test(id)) this.master.talking = true;
+    this.ui.prompt(null);
+    const cls = () => this.currentClass();
+    const ctx = {
+      caminho: () => (cls() ? cls().path : 'nenhum caminho'),
+      classe: () => (cls() ? cls().name : ''),
+      mortes: () => this.save.deaths || 0,
+      saudacao: () => pick(SAUDACOES),
+      conselho: () => pick(CONSELHOS),
+      retorno: () => pick(RETORNOS),
+    };
+    this.dialogue.run(id, ctx, (a) => this.dialogueAction(a), () => {
+      if (this.master) this.master.talking = false;
+      if (this.player) this.player.locked = false;
+      this.input.pressed.clear(); // a tecla que fechou o diálogo não deve virar pulo/interação
+      this.last = performance.now();
+      if (this.pendingMeta) {
+        this.pendingMeta = false;
+        this.state = 'meta';
+        this.ui.openMeta(() => { this.state = 'playing'; this.input.lock(); this.last = performance.now(); });
+        return;
+      }
+      this.state = 'playing';
+      if (onDone) onDone();
+      if (this.state === 'playing') this.input.lock();
+    });
+  }
+
+  dialogueAction(action) {
+    if (action.startsWith('classe:')) {
+      const id = action.split(':')[1];
+      this.save.story.classe = id;
+      writeSave(this.save);
+      this.makePlayer(CLASSES[id], this.run.stats);
+      this.player.locked = true;
+    } else if (action === 'meta') {
+      this.pendingMeta = true;
+      this.dialogue.finish();
+    }
+  }
+
+  // ---------- Run ----------
+  startRun() {
+    const cls = this.currentClass();
+    this.run = {
+      cls, floor: 0, roomIndex: 0, type: 'combate',
       stats: baseStats(this.save.meta), boons: [], ecos: 0,
       kills: 0, parries: 0, perfectDodges: 0, rooms: 0, startTime: performance.now(),
     };
-    if (this.player) this.player.dispose();
-    this.player = new Player(this.camera, weapon, this.run.stats);
+    this.makePlayer(cls, this.run.stats);
     this.save.runs++;
     writeSave(this.save);
     this.ui.showHUD(true);
-    this.ui.weapon(weapon.name);
     this.ui.boons([]);
     this.enterRoom('combate');
     this.state = 'playing';
-    this.input.lock();
+    if (!this.input.locked) this.input.lock();
   }
 
   buildRoom(layout, theme) {
     this.clearEntities();
     if (this.room) this.room.dispose();
-    const size = layout === 'boss' ? 40 : layout === 'towers' ? 36 : 34;
+    const size = layout === 'boss' ? 40 : layout === 'towers' ? 36 : layout === 'hub' ? 30 : 34;
     this.room = new Room(this.scene, theme, layout, size);
     this.scene.fog = new THREE.Fog(theme.fog, 18, 75);
     this.scene.background = new THREE.Color(theme.fog);
     this.hemi.color.set(theme.light);
+    this.hemi.intensity = theme.hemi ?? 2.2;
   }
 
   clearEntities() {
+    for (const n of this.npcs) n.dispose();
+    this.npcs = [];
+    this.master = null;
     for (const e of this.enemies) e.remove();
     for (const p of this.projectiles) p.kill();
     for (const w of this.waves) w.kill();
@@ -112,7 +241,7 @@ export class Game {
     const p = this.player;
     p.pos.set(0, 0, this.room.half - 3);
     p.vel.set(0, 0, 0);
-    p.yaw = 0; p.pitch = 0;
+    p.yaw = 0; p.pitch = 0; p.facing = 0;
     p.dashCharges = p.maxDash();
 
     this.roomState = { cleared: false, waves: [], waveIdx: 0, timer: 0, spawnTimer: 0, rewardGiven: false, doorsOpen: false, duel: type === 'duelo', started: 0.8 };
@@ -141,6 +270,7 @@ export class Game {
       }
     } else if (type === 'chefe') {
       rs.waves = [[{ t: 'arauto', boss: true }]];
+      rs.preDialogue = 'arauto_intro_' + f;
     }
     if (type === 'santuario') {
       rs.cleared = true;
@@ -219,7 +349,15 @@ export class Game {
   updateRoom(dt) {
     const rs = this.roomState;
     const run = this.run;
-    if (rs.started > 0) { rs.started -= dt; if (rs.started <= 0 && rs.waves.length) this.spawnWave(rs.waves[rs.waveIdx]); return; }
+    if (rs.hub) return this.updateHub();
+    if (rs.started > 0) {
+      rs.started -= dt;
+      if (rs.started <= 0) {
+        if (rs.preDialogue) { const id = rs.preDialogue; rs.preDialogue = null; rs.started = 0.4; this.startDialogue(id); }
+        else if (rs.waves.length) this.spawnWave(rs.waves[rs.waveIdx]);
+      }
+      return;
+    }
     const alive = this.enemies.filter(e => !e.dead && !e.stationary).length;
     const towerAlive = this.enemies.filter(e => !e.dead && e.stationary).length;
 
@@ -266,6 +404,23 @@ export class Game {
     }
   }
 
+  updateHub() {
+    const p = this.player;
+    const near = this.master && p.pos.distanceTo(this.master.pos) < 2.8;
+    this.ui.prompt(near ? '[E] Falar com Mestre Oren' : null);
+    if (near && this.input.consume('KeyE')) { this.startDialogue('mestre_menu'); return; }
+    for (const d of this.room.doors) {
+      if (Math.abs(p.pos.x - d.x) < 1.5 && p.pos.z < d.z + 1.3) {
+        if (!this.currentClass()) { p.pos.z += 2; this.startDialogue('trocar'); return; }
+        sfx.door();
+        this.fx.flash(0.8, '#000');
+        this.ui.prompt(null);
+        this.startRun();
+        return;
+      }
+    }
+  }
+
   roomCleared() {
     const rs = this.roomState;
     if (rs.cleared) return;
@@ -284,9 +439,10 @@ export class Game {
     if (type === 'chefe') {
       this.addEcos(30);
       this.player.heal(this.run.stats.maxHp);
+      this.save.story.bosses = Math.max(this.save.story.bosses || 0, this.run.floor + 1);
       if (this.run.floor >= FLOORS.length - 1) { this.endRun(true); return; }
       this.fx.callout('ANDAR CONCLUÍDO', '#ffd34a', 1.6);
-      this.offerBoons(2, 'Recompensa do Guardião');
+      this.startDialogue('arauto_derrota_' + this.run.floor, () => this.offerBoons(2, 'Recompensa do Guardião'));
       return;
     }
     if (reward === 'heal') {
@@ -380,7 +536,8 @@ export class Game {
   // ---------- Combate ----------
   playerStrike(combo) {
     const p = this.player, w = p.weapon, st = this.run.stats;
-    const fwd = p.forward();
+    if (w.attack === 'bolt') return this.castBolt(combo);
+    const fwd = p.aimForward();
     const mult = w.comboMults[combo];
     const fury = st.fury ? 1 + p.fury * 0.1 : 1;
     let hitAny = false, critAny = false;
@@ -406,7 +563,7 @@ export class Game {
         continue;
       }
       dmg = Math.round(dmg);
-      e.takeDamage(dmg, to, w.id === 'martelo' ? 9 : 4);
+      e.takeDamage(dmg, to, combo === 2 ? 8 : 4);
       if (!e.dead) e.addPosture(postureDmg);
       this.fx.number(e.pos, String(dmg), crit);
       this.fx.burst(pos, crit ? 0xffd34a : 0xff4a5a, crit ? 18 : 9, crit ? 7 : 5, 0.4);
@@ -419,15 +576,16 @@ export class Game {
       p.critNext = false;
     }
     if (combo === 2) {
-      if (w.slamFinisher) {
-        const c = p.pos.clone().addScaledVector(fwd, 2);
-        this.fx.ring(c, 0xffb27a, 4.5, 0.35);
+      if (w.finisher) {
+        const R = w.finisher.radius;
+        const c = p.pos.clone().addScaledVector(fwd, 1.5);
+        this.fx.ring(c, w.color, R, 0.35);
         this.fx.addShake(0.3);
         sfx.slam();
         for (const e of this.enemies) {
           if (e.dead || e.baseY > 1.5) continue;
-          if (Math.hypot(e.pos.x - c.x, e.pos.z - c.z) < 4.5 + e.radius && !this.roomState.duel) {
-            const dmg = Math.round(w.damage * st.dmgMult * 0.5);
+          if (Math.hypot(e.pos.x - c.x, e.pos.z - c.z) < R + e.radius && !this.roomState.duel) {
+            const dmg = Math.round(w.damage * st.dmgMult * w.finisher.mult);
             e.takeDamage(dmg, new THREE.Vector3(e.pos.x - c.x, 0, e.pos.z - c.z).normalize(), 8);
             if (!e.dead) e.addPosture(20 * st.postureMult);
             this.fx.number(e.pos, String(dmg));
@@ -444,6 +602,36 @@ export class Game {
         this.projectiles.push(pr);
       }
     }
+  }
+
+  // Mago: dardo arcano disparado da mão em direção à mira.
+  castBolt(combo) {
+    const p = this.player, w = p.cls, st = this.run.stats;
+    const heavy = combo === 2;
+    const origin = p.muzzle(combo);
+    const aim = this.aimAssist(origin, 0.985);
+    const target = origin.clone().addScaledVector(aim, 40);
+    const fury = st.fury ? 1 + p.fury * 0.1 : 1;
+    let dmg = w.damage * st.dmgMult * w.comboMults[combo] * fury;
+    let crit = false;
+    if (p.critNext) { dmg *= (w.perfectDodgeCrit || 2); crit = true; p.critNext = false; }
+    const shoot = (angle) => {
+      const dir = target.clone().sub(origin).normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+      const pr = new Projectile(this, origin.clone(), dir.multiplyScalar(w.boltSpeed * (heavy ? 0.8 : 1)), dmg * (angle ? 0.5 : 1), false, null);
+      pr.reflected = true;
+      pr.playerShot = true;
+      pr.crit = crit;
+      pr.posture = 6 * w.postureMult * st.postureMult * w.comboMults[combo] * (heavy ? 2 : 1);
+      pr.aoe = heavy ? 2.4 : 0;
+      pr.mesh.material.color.set(heavy ? 0xd8c8ff : w.color);
+      pr.trail.color.set(w.color);
+      if (heavy) pr.mesh.scale.set(2, 2, 3);
+      this.projectiles.push(pr);
+    };
+    shoot(0);
+    if (heavy && st.slashWave) { shoot(0.18); shoot(-0.18); }
+    sfx.shoot();
+    if (heavy) this.fx.addShake(0.08);
   }
 
   // Resolve um golpe inimigo contra o jogador.
@@ -527,7 +715,14 @@ export class Game {
   damagePlayer(dmg, src) {
     const p = this.player;
     if (p.hurtCooldown > 0 || p.dead) return;
+    if (dmg <= 0) { // boneco de treino
+      p.hurtCooldown = 0.4;
+      this.fx.callout('ATINGIDO', '#ff8a8a', 0.4);
+      this.fx.hurt(); sfx.hurt(); p.onHurt();
+      return;
+    }
     dmg = Math.round(dmg);
+    p.onHurt();
     p.hp -= dmg;
     p.hurtCooldown = 0.4;
     p.fury = 0;
@@ -562,13 +757,28 @@ export class Game {
     this.waves.push(new Shockwave(this, pos, cfg, owner));
   }
 
+  // Direção da mira a partir de `origin`, puxada para o inimigo mais perto do centro da tela.
+  aimAssist(origin, cone = 0.97) {
+    const camPos = new THREE.Vector3(); this.camera.getWorldPosition(camPos);
+    const fwd = this.player.aimDir3();
+    let best = null, bestDot = cone;
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const c = e.pos.clone(); c.y = e.baseY + e.def.height * 0.6;
+      const dot = c.clone().sub(camPos).normalize().dot(fwd);
+      if (dot > bestDot) { bestDot = dot; best = c; }
+    }
+    if (best) return best.sub(origin).normalize();
+    return camPos.addScaledVector(fwd, 40).sub(origin).normalize();
+  }
+
   projectileVsPlayer(pr) {
     if (pr.ignorePlayer) return;
     const p = this.player;
     const c = p.eye(); c.y -= 0.5;
     if (pr.pos.distanceTo(c) > 0.9) return;
     if (p.isParrying() && !pr.unparryable) {
-      const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+      const dir = this.aimAssist(p.eye());
       pr.reflect(dir, this.run.stats.reflectMult, this.run.stats.reflectHoming);
       pr.pos.copy(p.eye()).addScaledVector(dir, 1.0);
       sfx.reflect();
@@ -586,6 +796,35 @@ export class Game {
 
   projectileHitEnemy(pr, e) {
     const st = this.run.stats;
+    if (pr.playerShot) {
+      let dmg = pr.damage, crit = !!pr.crit;
+      const at = e.pos.clone(); at.y = e.baseY + e.def.height * 0.6;
+      if (this.roomState.duel && !e.isStunned() && !crit) {
+        e.addPosture(pr.posture * 1.5);
+        this.fx.number(e.pos, 'BLOQUEADO', false, '#999');
+        this.fx.burst(at, 0xcccccc, 5, 3, 0.25);
+        return;
+      }
+      if (e.isStunned()) { dmg *= e.broken ? st.executeMult : st.riposteMult; crit = true; }
+      dmg = Math.round(dmg);
+      e.takeDamage(dmg, pr.vel.clone().setY(0).normalize(), 3);
+      if (!e.dead) e.addPosture(pr.posture);
+      this.fx.number(e.pos, String(dmg), crit, crit ? null : '#c8b8ff');
+      this.fx.burst(at, this.player.cls.color, crit ? 16 : 8, 5, 0.35);
+      crit ? sfx.crit() : sfx.hit();
+      this.hitstop = Math.max(this.hitstop, crit ? 0.07 : 0.03);
+      if (pr.aoe) {
+        this.fx.ring(pr.pos.clone().setY(0.1), this.player.cls.color, pr.aoe, 0.3);
+        for (const o of this.enemies) {
+          if (o === e || o.dead || o.pos.distanceTo(pr.pos) > pr.aoe + o.radius + 1) continue;
+          const d2 = Math.round(dmg * 0.5);
+          o.takeDamage(d2, o.pos.clone().sub(pr.pos).setY(0).normalize(), 4);
+          if (!o.dead) o.addPosture(pr.posture * 0.5);
+          this.fx.number(o.pos, String(d2));
+        }
+      }
+      return;
+    }
     const dmg = Math.round(pr.damage * (pr.owner ? st.dmgMult : 1));
     e.takeDamage(dmg, pr.vel.clone().setY(0).normalize(), 5);
     if (!e.dead) e.addPosture(25 * st.postureMult);
@@ -634,8 +873,15 @@ export class Game {
   }
 
   endRun(win) {
+    if (win && !this.run.finalShown) {
+      this.run.finalShown = true;
+      this.startDialogue('final', () => this.endRun(true));
+      return;
+    }
     const run = this.run;
     if (win) this.addEcos(50);
+    if (!win) this.save.deaths = (this.save.deaths || 0) + 1;
+    this.save.story.last = win ? 'vitoria' : 'morte';
     this.state = win ? 'win' : 'dead';
     this.save.ecos += run.ecos;
     if (win) this.save.wins++;
@@ -645,6 +891,7 @@ export class Game {
     this.input.unlock();
     this.ui.boss(false);
     const t = Math.round((performance.now() - run.startTime) / 1000);
+    this.ui.prompt(null);
     this.ui.end(win, {
       'Andar alcançado': `${run.floor + 1} — ${FLOORS[run.floor].name}`,
       'Salas concluídas': run.rooms,
@@ -663,6 +910,7 @@ export class Game {
     this.clearEntities();
     if (this.player) { this.player.dispose(); this.player = null; }
     this.run = null;
+    this.ui.prompt(null);
     this.buildRoom('open', FLOORS[0]);
     this.camera.position.set(0, 3, 12);
     this.camera.rotation.set(0, 0, 0);
@@ -687,6 +935,12 @@ export class Game {
       this.fx.update(realDt, realDt);
       return;
     }
+    if (this.state === 'dialogue') {
+      for (const n of this.npcs) n.update(realDt);
+      if (this.player) this.player.view.update(0, false, this.room);
+      this.fx.update(0, realDt);
+      this.room.update(this.elapsed);
+    }
     if (this.state !== 'playing') {
       this.input.endFrame();
       this.input.takeMouse();
@@ -704,13 +958,14 @@ export class Game {
 
     const p = this.player;
     p.update(pdt, this.input, this);
+    for (const n of this.npcs) n.update(dt);
     for (const e of this.enemies) e.update(dt);
     this.enemies = this.enemies.filter(e => !e.removed);
     for (const pr of this.projectiles) pr.update(dt);
     this.projectiles = this.projectiles.filter(pr => !pr.dead);
     for (const w of this.waves) w.update(dt);
     this.waves = this.waves.filter(w => !w.dead);
-    if (this.state !== 'playing') return; // morreu durante o passo
+    if (this.state !== 'playing') { this.input.endFrame(); return; } // morreu ou abriu diálogo durante o passo
 
     this.updateRoom(dt);
     this.room.update(this.elapsed);

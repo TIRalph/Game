@@ -1,23 +1,21 @@
 // Armas, bênçãos (upgrades da run) e melhorias permanentes.
 
-export const WEAPONS = {
-  espada: {
-    id: 'espada', name: 'Espada', desc: 'Equilibrada. Janela de aparo generosa.',
-    damage: 20, swingTime: 0.42, activeAt: 0.35, range: 2.8, arc: 0.45,
-    parryWindow: 0.2, postureMult: 1, comboMults: [1, 1, 1.6], dashBonus: 0,
-    color: 0xcfd6ff, unlock: 0,
+// Os dois caminhos do Mosteiro do Eco. `view` define a câmera.
+export const CLASSES = {
+  mago: {
+    id: 'mago', name: 'Mago', path: 'Caminho da Mão Aberta', view: 'first', attack: 'bolt',
+    desc: 'Primeira pessoa. Dardos arcanos à distância, selo rúnico que apara e reflete, lampejo rápido.',
+    damage: 12, swingTime: 0.3, activeAt: 0.3, comboMults: [1, 1, 2.4], boltSpeed: 36,
+    parryWindow: 0.2, postureMult: 0.8, dashBonus: 0, dodgeSpeed: 24,
+    model: 'aprendiz_mago_maos', color: 0x9a7dff,
   },
-  adagas: {
-    id: 'adagas', name: 'Adagas Gêmeas', desc: 'Golpes rápidos. +1 esquiva. Esquiva perfeita dá crítico x3.',
-    damage: 10, swingTime: 0.22, activeAt: 0.4, range: 2.3, arc: 0.5,
-    parryWindow: 0.15, postureMult: 0.7, comboMults: [1, 1, 1.3], dashBonus: 1, perfectDodgeCrit: 3,
-    color: 0x9affd0, unlock: 60,
-  },
-  martelo: {
-    id: 'martelo', name: 'Martelo', desc: 'Lento e devastador. Dano de postura x2. 3º golpe gera onda de choque.',
-    damage: 40, swingTime: 0.78, activeAt: 0.45, range: 3.1, arc: 0.35,
-    parryWindow: 0.24, postureMult: 2, comboMults: [1, 1.1, 1.8], dashBonus: 0, slamFinisher: true,
-    color: 0xffb27a, unlock: 120,
+  punhos: {
+    id: 'punhos', name: 'Punhos', path: 'Caminho do Punho Fechado', view: 'third', attack: 'melee',
+    desc: 'Terceira pessoa. Combos rápidos de soco, guarda firme, +1 esquiva. O 3º golpe abala o chão.',
+    damage: 15, swingTime: 0.3, activeAt: 0.45, range: 2.4, arc: 0.35, comboMults: [1, 1.1, 2.0],
+    parryWindow: 0.22, postureMult: 1.4, dashBonus: 1, perfectDodgeCrit: 2.5, dodgeSpeed: 19,
+    finisher: { radius: 3.5, mult: 0.6 },
+    model: 'aprendiz_punhos', color: 0xffb27a,
   },
 };
 
@@ -83,10 +81,14 @@ export const META_UPGRADES = [
 
 const SAVE_KEY = 'eco-da-lamina-save-v1';
 export function loadSave() {
-  const def = { ecos: 0, meta: {}, unlocked: { espada: true }, runs: 0, wins: 0, best: 0 };
+  const def = { ecos: 0, meta: {}, runs: 0, wins: 0, deaths: 0, best: 0, story: { prologo: false, classe: null, last: null, bosses: 0 } };
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) return Object.assign(def, JSON.parse(raw));
+    if (raw) {
+      const saved = JSON.parse(raw);
+      const story = Object.assign({}, def.story, saved.story || {});
+      return Object.assign(def, saved, { story });
+    }
   } catch { /* sem storage */ }
   return def;
 }
@@ -102,7 +104,10 @@ export const ROOM_TYPES = {
   flechas: { name: 'Chuva de Flechas', color: 0x5ce1ff, reward: 'boon', desc: 'Reflita para vencer' },
   santuario: { name: 'Santuário', color: 0x9affd0, reward: 'heal', desc: 'Descanso + bênção' },
   chefe: { name: 'Chefe', color: 0xff3030, reward: 'boss', desc: 'Guardião do andar' },
+  profundezas: { name: 'As Profundezas', color: 0xe8c27a, reward: 'none', desc: 'Iniciar expedição' },
 };
+
+export const HUB_THEME = { name: 'Mosteiro do Eco', fog: 0x1a1c26, floor: 0x45403a, wall: 0x56504a, accent: 0xe8c27a, light: 0xffe2b8, hemi: 0.7 };
 
 export const FLOORS = [
   { name: 'Cripta Esquecida', fog: 0x120f1c, floor: 0x2a2638, wall: 0x3a3450, accent: 0x7a6cff, light: 0x9a8cff },

@@ -71,3 +71,14 @@ kbd { background: #222; border: 1px solid #555; border-bottom-width: 3px; border
 #click-to-play { position: fixed; left: 50%; top: 60%; transform: translateX(-50%); z-index: 15; background: #000a; padding: 10px 20px; border-radius: 6px; }
 #end-stats { line-height: 1.8; text-align: center; }
 input[type=range] { vertical-align: middle; }
+
+/* Diálogo */
+#dialogue { position: fixed; inset: auto 0 0 0; z-index: 18; display: flex; justify-content: center; padding: 0 16px 28px; background: linear-gradient(0deg, rgba(4,4,8,.85), transparent); cursor: pointer; }
+.dlg-box { width: min(820px, 100%); background: rgba(16,14,24,.94); border: 1px solid #4a4230; border-radius: 10px; padding: 18px 22px; box-shadow: 0 10px 40px #000a; display: flex; flex-direction: column; gap: 10px; }
+#dlg-name { font-weight: 700; letter-spacing: .12em; text-transform: uppercase; font-size: 13px; }
+#dlg-text { font-size: 18px; line-height: 1.5; min-height: 54px; color: #ece8f4; }
+#dlg-text.narration { font-style: italic; color: #c9c4d8; }
+#dlg-choices { display: flex; flex-direction: column; gap: 6px; }
+#dlg-choices button { text-align: left; }
+#dlg-hint { font-size: 12px; color: #77728a; align-self: flex-end; }
+#prompt { position: fixed; left: 50%; top: 58%; transform: translateX(-50%); z-index: 12; background: #000b; border: 1px solid #e8c27a66; color: #e8c27a; padding: 8px 16px; border-radius: 6px; font-weight: 600; pointer-events: none; }

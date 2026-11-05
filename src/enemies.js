@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { sfx } from './audio.js';
+import { createCharacter } from './models.js';
 
 const RED = new THREE.Color(0xff2a2a);
 const ORANGE = new THREE.Color(0xff8a00);
-const EYE_IDLE = new THREE.Color(0xffe0a0);
+const YELLOW = new THREE.Color(0xffd34a);
 
 // Definição dos tipos de inimigo e seus ataques.
 // kind: melee | lunge | shoot | fan | slam | summon
@@ -44,6 +45,16 @@ export const ENEMY_TYPES = {
           chain: { kind: 'melee', windup: 0.5, reach: 2.6, arc: 0.8, damage: 12, recover: 0.9 } } },
     ],
   },
+  // Boneco de treino do mosteiro: ataques lentos e sem dano, nunca morre.
+  boneco: {
+    name: 'Boneco de Treino', hp: 400, posture: 90, speed: 0, radius: 0.5, height: 1.8, color: 0x8a6a40, hood: 0x5a4020,
+    weapon: 'blade', prefer: 2, training: true,
+    attacks: [
+      { kind: 'melee', windup: 1.1, reach: 2.6, arc: 1.2, damage: 0, recover: 1.0, weight: 3 },
+      { kind: 'melee', windup: 1.3, reach: 2.6, arc: 1.2, damage: 0, recover: 1.0, weight: 1, unparryable: true },
+      { kind: 'slam', windup: 1.4, reach: 2.4, damage: 0, recover: 1.2, weight: 1, unparryable: true, wave: { speed: 7, maxR: 9, damage: 0 } },
+    ],
+  },
   arauto: {
     name: 'O Arauto', hp: 900, posture: 260, speed: 3.4, radius: 1.2, height: 3.6, color: 0x2a2440,
     weapon: 'greatsword', prefer: 3.0, boss: true, heavy: true,
@@ -72,68 +83,20 @@ function pickWeighted(list) {
   return list[0];
 }
 
-function buildBody(def, elite) {
-  const g = new THREE.Group();
-  const h = def.height;
-  const bodyMat = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.7, metalness: 0.2 });
-  const glowMat = new THREE.MeshStandardMaterial({ color: 0x222222, emissive: EYE_IDLE.clone(), emissiveIntensity: 1.2 });
-  const bladeMat = new THREE.MeshStandardMaterial({ color: 0x999aa8, metalness: 0.7, roughness: 0.3, emissive: new THREE.Color(0), emissiveIntensity: 0 });
+// Opções do boneco procedural para cada tipo (usadas só quando não há .glb no manifesto).
+function proceduralOpts(def) {
+  return {
+    height: def.height, color: def.color, weapon: def.weapon,
+    weaponHand: def.weapon === 'bow' ? 'L' : 'R',
+    crown: !!def.boss, cape: def.boss ? 0x400818 : null,
+    hood: def.hood ?? null,
+  };
+}
 
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(h * 0.15, h * 0.12, h * 0.42, 8), bodyMat);
-  torso.position.y = h * 0.62; torso.castShadow = true; g.add(torso);
-  const hips = new THREE.Mesh(new THREE.CylinderGeometry(h * 0.12, h * 0.1, h * 0.12, 8), bodyMat);
-  hips.position.y = h * 0.37; g.add(hips);
-  const legGeo = new THREE.CylinderGeometry(h * 0.045, h * 0.04, h * 0.36, 6);
-  const legL = new THREE.Mesh(legGeo, bodyMat); legL.position.set(-h * 0.06, h * 0.18, 0); g.add(legL);
-  const legR = new THREE.Mesh(legGeo, bodyMat); legR.position.set(h * 0.06, h * 0.18, 0); g.add(legR);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(h * 0.1, 10, 8), bodyMat);
-  head.position.y = h * 0.92; head.castShadow = true; g.add(head);
-  const eyeGeo = new THREE.BoxGeometry(h * 0.04, h * 0.018, h * 0.02);
-  const eyeL = new THREE.Mesh(eyeGeo, glowMat); eyeL.position.set(-h * 0.035, h * 0.93, -h * 0.09); g.add(eyeL);
-  const eyeR = new THREE.Mesh(eyeGeo, glowMat); eyeR.position.set(h * 0.035, h * 0.93, -h * 0.09); g.add(eyeR);
-
-  // Braço da arma (pivô no ombro)
-  const arm = new THREE.Group();
-  arm.position.set(h * 0.2, h * 0.78, 0);
-  g.add(arm);
-  const upper = new THREE.Mesh(new THREE.CylinderGeometry(h * 0.04, h * 0.035, h * 0.3, 6), bodyMat);
-  upper.position.y = -h * 0.15; arm.add(upper);
-  const weapon = new THREE.Group();
-  weapon.position.y = -h * 0.3;
-  arm.add(weapon);
-  let len = h * 0.45;
-  if (def.weapon === 'blade') {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.08, len, 0.03), bladeMat); b.position.y = -len / 2; weapon.add(b);
-  } else if (def.weapon === 'rapier') {
-    len = h * 0.55;
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.03, len, 0.03), bladeMat); b.position.y = -len / 2; weapon.add(b);
-  } else if (def.weapon === 'club') {
-    len = h * 0.45;
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.08, len, 7), bladeMat); b.position.y = -len / 2; weapon.add(b);
-  } else if (def.weapon === 'greatsword') {
-    len = h * 0.6;
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.22, len, 0.05), bladeMat); b.position.y = -len / 2; weapon.add(b);
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.1), glowMat); weapon.add(guard);
-  } else if (def.weapon === 'bow') {
-    const b = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.03, 4, 12, Math.PI), bladeMat);
-    b.rotation.z = Math.PI / 2; b.position.y = -0.1; weapon.add(b);
-  }
-  weapon.rotation.x = -Math.PI / 2; // apontado para frente
-
-  if (def.boss) {
-    const crown = new THREE.Mesh(new THREE.TorusGeometry(h * 0.1, h * 0.015, 4, 8), glowMat);
-    crown.rotation.x = Math.PI / 2; crown.position.y = h * 1.0; g.add(crown);
-    const capeMat = new THREE.MeshStandardMaterial({ color: 0x400818, side: THREE.DoubleSide, roughness: 0.9 });
-    const cape = new THREE.Mesh(new THREE.PlaneGeometry(h * 0.35, h * 0.6), capeMat);
-    cape.position.set(0, h * 0.5, h * 0.14); g.add(cape);
-  }
-  if (elite) {
-    const aura = new THREE.Mesh(new THREE.TorusGeometry(def.radius * 1.3, 0.05, 6, 24), new THREE.MeshBasicMaterial({ color: 0xff7af5 }));
-    aura.rotation.x = Math.PI / 2; aura.position.y = 0.1; g.add(aura);
-    g.userData.aura = aura;
-  }
-  g.userData = { ...g.userData, bodyMat, glowMat, bladeMat, arm, weapon, legL, legR };
-  return g;
+function windupAnim(atk) {
+  if (atk.kind === 'slam' || atk.kind === 'summon') return 'windup_heavy';
+  if (atk.kind === 'shoot') return 'aim';
+  return 'windup';
 }
 
 function makeBars(width) {
@@ -183,10 +146,18 @@ export class Enemy {
     this.phase = 1;
     this.stationary = !!opts.stationary;
     this.hitThisLunge = false;
-    this.walk = Math.random() * 10;
+    this.lastPos = this.pos.clone();
 
-    this.mesh = buildBody(def, this.elite);
-    if (this.elite) this.mesh.scale.setScalar(1.15);
+    // Visual: placeholder procedural ou .glb do manifesto (ver models.js)
+    this.model = createCharacter(type, proceduralOpts(def));
+    this.mesh = this.model.root;
+    if (this.elite) {
+      this.mesh.scale.setScalar(1.15);
+      const aura = new THREE.Mesh(new THREE.TorusGeometry(def.radius * 1.3, 0.05, 6, 24), new THREE.MeshBasicMaterial({ color: 0xff7af5 }));
+      aura.rotation.x = Math.PI / 2; aura.position.y = 0.1;
+      this.mesh.add(aura);
+      this.aura = aura;
+    }
     this.mesh.position.copy(this.pos);
     game.scene.add(this.mesh);
     this.bars = def.boss ? null : makeBars(Math.max(0.9, this.radius * 2));
@@ -209,6 +180,7 @@ export class Enemy {
     this.state = 'windup';
     this.t = 0;
     this.hitThisLunge = false;
+    this.model.play(windupAnim(atk), { duration: this.atk.windupTime });
     sfx.windup(!!atk.unparryable);
   }
 
@@ -217,13 +189,12 @@ export class Enemy {
     const player = game.player;
     if (this.dead) {
       this.deathT += dt;
-      this.mesh.rotation.x = Math.min(Math.PI / 2, this.deathT * 4) * -1;
-      this.mesh.position.y = this.baseY - this.deathT * 0.8;
+      this.model.update(dt);
+      this.mesh.position.y = this.baseY - Math.max(0, this.deathT - 0.6) * 1.2;
       if (this.deathT > 1.2) this.remove();
       return;
     }
 
-    const ud = this.mesh.userData;
     const toP = new THREE.Vector3(player.pos.x - this.pos.x, 0, player.pos.z - this.pos.z);
     const dist = toP.length();
     const desiredFacing = Math.atan2(-toP.x, -toP.z);
@@ -241,12 +212,10 @@ export class Enemy {
 
     let glowK = 0;
     let glowColor = RED;
-    let armRot = 0;
 
     if (this.state === 'stagger') {
       this.stunT -= dt;
       this.mesh.rotation.z = Math.sin(this.stunT * 20) * 0.08;
-      armRot = 0.6;
       if (this.stunT <= 0) {
         this.state = 'move';
         this.broken = false;
@@ -303,7 +272,6 @@ export class Enemy {
       const k = Math.min(1, this.t / this.atk.windupTime);
       glowK = 0.3 + k * 2.5 + (remain < 0.14 ? 5 : 0);
       glowColor = this.atk.unparryable ? ORANGE : RED;
-      armRot = -k * 1.6;
       if (this.atk.kind === 'slam') {
         this.areaMesh.position.set(this.pos.x, 0.03, this.pos.z);
         this.areaMesh.scale.setScalar(this.atk.reach);
@@ -315,7 +283,7 @@ export class Enemy {
       this.t += dt;
       const fwd = new THREE.Vector3(-Math.sin(this.facing), 0, -Math.cos(this.facing));
       this.pos.addScaledVector(fwd, this.atk.dash * dt);
-      glowK = 4; glowColor = ORANGE; armRot = 0.4;
+      glowK = 4; glowColor = ORANGE;
       if (!this.hitThisLunge) {
         const r = game.enemyStrike(this, this.atk);
         if (r !== 'miss') this.hitThisLunge = true;
@@ -323,7 +291,6 @@ export class Enemy {
       if (this.t >= this.atk.dashTime) { this.state = 'recover'; this.t = 0; }
     } else if (this.state === 'recover') {
       this.t += dt;
-      armRot = 0.9 * Math.max(0, 1 - this.t / 0.3);
       if (this.t >= this.atk.recover) {
         if (this.atk.chain) this.startAttack(this.atk.chain);
         else {
@@ -339,28 +306,20 @@ export class Enemy {
     if (!this.stationary) game.room.collide(this.pos, this.radius);
     this.mesh.position.set(this.pos.x, this.baseY, this.pos.z);
     this.mesh.rotation.y = this.facing;
-    if (this.flinch > 0) this.mesh.rotation.x = -this.flinch * 0.25;
-    else if (this.state !== 'stagger') this.mesh.rotation.x = 0;
-    ud.arm.rotation.x = armRot;
-    ud.legL.rotation.x = Math.sin(this.walk) * 0.5;
-    ud.legR.rotation.x = -Math.sin(this.walk) * 0.5;
-    if (ud.aura) ud.aura.rotation.z += dt * 2;
+    if (this.aura) this.aura.rotation.z += dt * 2;
+
+    // Animação
+    const moved = Math.hypot(this.pos.x - this.lastPos.x, this.pos.z - this.lastPos.z) / Math.max(dt, 1e-4);
+    this.lastPos.copy(this.pos);
+    const m = this.model;
+    if (this.state === 'stagger') m.play('stagger');
+    else if (this.state === 'move') m.play(moved > 0.6 ? 'run' : 'idle');
+    m.update(dt, { speed: moved });
 
     // Brilho de aviso
-    if (glowK > 0) {
-      ud.glowMat.emissive.copy(glowColor);
-      ud.glowMat.emissiveIntensity = glowK;
-      ud.bladeMat.emissive.copy(glowColor);
-      ud.bladeMat.emissiveIntensity = glowK * 0.6;
-    } else if (this.state === 'stagger') {
-      ud.glowMat.emissive.setRGB(1, 0.85, 0.2);
-      ud.glowMat.emissiveIntensity = 2 + Math.sin(this.stunT * 30);
-      ud.bladeMat.emissiveIntensity = 0;
-    } else {
-      ud.glowMat.emissive.copy(EYE_IDLE);
-      ud.glowMat.emissiveIntensity = 1.2;
-      ud.bladeMat.emissiveIntensity = 0;
-    }
+    if (glowK > 0) m.setGlow(glowColor, glowK);
+    else if (this.state === 'stagger') m.setGlow(YELLOW, 2 + Math.sin(this.stunT * 30));
+    else m.setGlow(null);
 
     if (this.bars) {
       const b = this.bars;
@@ -399,13 +358,16 @@ export class Enemy {
     this.t = 0;
     switch (a.kind) {
       case 'melee':
+        this.model.play('strike', { duration: 0.2 });
         game.enemyStrike(this, a);
         if (this.state === 'windup') this.state = 'recover';
         break;
       case 'lunge':
+        this.model.play('lunge', { duration: a.dashTime });
         this.state = 'active';
         break;
       case 'slam':
+        this.model.play('strike_heavy', { duration: 0.25 });
         game.enemyStrike(this, a);
         game.spawnShockwave(this.pos.clone(), a.wave, this);
         sfx.slam();
@@ -415,6 +377,7 @@ export class Enemy {
         break;
       case 'shoot':
       case 'fan': {
+        this.model.play('strike', { duration: 0.2 });
         const origin = this.pos.clone(); origin.y = this.baseY + this.def.height * 0.75;
         const target = game.player.eye(); target.y -= 0.4;
         // Leve previsão de movimento
@@ -449,6 +412,7 @@ export class Enemy {
     } else {
       // Interrompe só o golpe atual, mas mantém a corrente (chefe/bruto)
       this.flinch = 1;
+      this.model.flinch(1);
       this.state = 'recover';
       this.t = 0;
       if (this.atk) this.atk.recover = Math.max(this.atk.recover, 0.5);
@@ -474,7 +438,9 @@ export class Enemy {
   takeDamage(d, knockDir = null, knockPower = 0) {
     this.hp -= d;
     this.flinch = 1;
+    this.model.flinch(1);
     if (knockDir && !this.def.heavy && !this.stationary) this.knock.addScaledVector(knockDir, knockPower);
+    if (this.hp <= 0 && this.def.training) { this.hp = this.hpMax; this.game.fx.callout('BONECO RESTAURADO', '#e8c27a', 0.6); return; }
     if (this.hp <= 0) this.die();
   }
 
@@ -485,6 +451,8 @@ export class Enemy {
     sfx.death();
     if (this.bars) this.bars.visible = false;
     this.areaMesh.visible = false;
+    this.model.setGlow(null);
+    this.model.play('death', { duration: 0.6 });
     this.game.onEnemyKilled(this);
   }
 
@@ -495,7 +463,7 @@ export class Enemy {
     s.remove(this.mesh);
     if (this.bars) s.remove(this.bars);
     s.remove(this.areaMesh);
-    this.mesh.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    this.model.dispose();
   }
 }
 
@@ -512,6 +480,9 @@ export class Projectile {
     this.life = 4;
     this.dead = false;
     this.homing = false;
+    this.playerShot = false; // disparo do jogador (mago)
+    this.posture = 25;
+    this.aoe = 0;
     const color = unparryable ? 0xff8a00 : 0xff2a3a;
     this.mesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color }));
     this.mesh.scale.z = 3.2;
