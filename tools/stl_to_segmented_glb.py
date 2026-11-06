@@ -9,7 +9,10 @@ No jogo, cada parte é presa a uma articulação do rig procedural, então o mod
 anima com as mesmas poses dos placeholders (ver SegmentedCharacter em src/models.js).
 
 Uso:
-  python3 tools/stl_to_segmented_glb.py entrada.stl saida.glb [--json juntas.json]
+  python3 tools/stl_to_segmented_glb.py entrada.stl saida.glb [--json juntas.json] [--unity saida.bytes]
+
+--unity grava também um .bytes para a versão Unity (Assets/Resources/Models/),
+já no sistema de coordenadas da Unity (frente +Z) e com normais suavizadas.
 
 Coordenadas do STL esperadas: Z para cima, frente para -Y, braços abertos em X.
 Ajuste o dicionário JOINTS (unidades do STL) se usar outro modelo. O script
@@ -108,6 +111,46 @@ def rot_z(p, ang):
     return out
 
 
+def creased_normals(tris, angle_deg=36.0):
+    """Normais por canto, suavizando só entre faces com ângulo menor que `angle_deg`."""
+    fn = np.cross(tris[:, 1] - tris[:, 0], tris[:, 2] - tris[:, 0])
+    area = np.linalg.norm(fn, axis=1, keepdims=True)
+    fu = fn / np.maximum(area, 1e-12)
+    corners = tris.reshape(-1, 3)
+    keys = np.round(corners, 5)
+    _, inv = np.unique(keys, axis=0, return_inverse=True)
+    inv = inv.reshape(-1)
+    face_of = np.repeat(np.arange(len(tris)), 3)
+    order = np.argsort(inv, kind='stable')
+    cos_t = np.cos(np.radians(angle_deg))
+    out = np.zeros_like(corners)
+    bounds = np.flatnonzero(np.diff(inv[order])) + 1
+    for grp in np.split(order, bounds):
+        faces = face_of[grp]
+        nf = fu[faces]
+        sim = nf @ nf.T >= cos_t
+        acc = sim.astype(np.float64) @ (fn[faces])
+        out[grp] = acc / np.maximum(np.linalg.norm(acc, axis=1, keepdims=True), 1e-12)
+    return out
+
+
+def write_unity(path, parts):
+    """Formato simples lido por ModelLibrary.cs: materiais + partes (posições, normais, índices)."""
+    with open(path, 'wb') as f:
+        f.write(b'ECOM'); f.write(struct.pack('<I', 1))
+        names = list(MATERIALS)
+        f.write(struct.pack('<I', len(names)))
+        for n in names:
+            b = n.encode(); f.write(struct.pack('<B', len(b))); f.write(b)
+            f.write(struct.pack('<3f', *MATERIALS[n]))
+        f.write(struct.pack('<I', len(parts)))
+        for part, mat, pos, nor, idx in parts:
+            b = part.encode(); f.write(struct.pack('<B', len(b))); f.write(b)
+            f.write(struct.pack('<B', names.index(mat)))
+            f.write(struct.pack('<I', len(pos))); f.write(pos.astype('<f4').tobytes()); f.write(nor.astype('<f4').tobytes())
+            f.write(struct.pack('<I', len(idx))); f.write(idx.astype('<u4').tobytes())
+
+
 def main():
     args = sys.argv[1:]
     if len(args) < 2:
@@ -173,6 +216,25 @@ def main():
         accessors.append({'bufferView': iv, 'componentType': 5125, 'count': len(inv), 'type': 'SCALAR'})
         ia = len(accessors) - 1
         meshes_by_part.setdefault(part, []).append({'attributes': {'POSITION': pa}, 'indices': ia, 'material': mat_names.index(mat)})
+
+    if '--unity' in args:
+        uparts = []
+        for (part, mat), idx in sorted(groups.items()):
+            tris = to_game(T[idx], s) - pivots[part]
+            if part.startswith(('upperArm', 'foreArm')):
+                tris = rot_z(tris, -np.pi / 2 if part.endswith('R') else np.pi / 2)
+            nor = creased_normals(tris)
+            corners = tris.reshape(-1, 3)
+            # Unity: frente +Z, então espelha Z. O espelho inverte o sentido dos triângulos;
+            # trocamos 2 vértices de cada triângulo para a face da frente continuar para fora.
+            corners = corners * np.array([1, 1, -1]); nor = nor * np.array([1, 1, -1])
+            key = np.round(np.hstack([corners, nor * 0.01]), 5)
+            uniq, first, inv = np.unique(key, axis=0, return_index=True, return_inverse=True)
+            tri = inv.reshape(-1, 3)[:, [0, 2, 1]]
+            uparts.append((part, mat, corners[first], nor[first], tri.reshape(-1)))
+        upath = args[args.index('--unity') + 1]
+        write_unity(upath, uparts)
+        print('unity:', upath)
 
     meshes, nodes = [], []
     for part, prims in meshes_by_part.items():

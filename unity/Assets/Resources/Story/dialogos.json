@@ -1,0 +1,492 @@
+{
+  "speakers": [
+    {
+      "id": "narrador",
+      "name": "",
+      "color": "#b9b4cc"
+    },
+    {
+      "id": "mestre",
+      "name": "Mestre Rafael",
+      "color": "#e8c27a"
+    },
+    {
+      "id": "aprendiz",
+      "name": "Você",
+      "color": "#9ad0ff"
+    },
+    {
+      "id": "arauto",
+      "name": "O Arauto",
+      "color": "#ff5a6e"
+    },
+    {
+      "id": "eco",
+      "name": "Eco de Rafael",
+      "color": "#e8c27a"
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "prologo",
+      "lines": [
+        {
+          "s": "narrador",
+          "t": "Há muito tempo, o Sino do Eco guardava a memória do mundo. Cada voz, cada passo, cada vida ressoava nele.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "narrador",
+          "t": "Então o Arauto desceu das montanhas e partiu o Sino em três. Desde aquele dia, o mundo esquece.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "narrador",
+          "t": "Você subiu os mil degraus do Mosteiro do Eco atrás da única pessoa que ainda se lembra.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Então você veio. Achei que o silêncio já tivesse levado o último aprendiz.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Sou Rafael. Fui guardião do Sino antes que ele se calasse.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "aprendiz",
+          "t": "Disseram que o senhor sabe como fazê-lo soar de novo.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Os fragmentos caíram nas Profundezas: a Cripta Esquecida, a Forja Rubra e o Abismo Glacial. O Arauto guarda cada um deles.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Lá embaixo, quem cai não morre. Vira eco e volta para cá, ao pé do Sino. Lembra do que aprendeu e esquece o resto.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Por isso cair não é o fim. Desistir é.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Antes de descer, escolha como vai lutar. O Mosteiro ensina dois caminhos, e os dois começam nas mãos.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "A Mão Aberta molda o eco em magia: dardos arcanos e selos que devolvem os golpes. Você enxerga o mundo pelos próprios olhos.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "O Punho Fechado molda o eco no próprio corpo: socos, guarda e passos rápidos. Você aprende a se ver de fora, como o inimigo te vê.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Qual caminho é o seu?",
+          "next": "",
+          "choices": [
+            {
+              "t": "Mão Aberta — Mago (primeira pessoa)",
+              "action": "classe:mago",
+              "next": "escolha_mago",
+              "end": false
+            },
+            {
+              "t": "Punho Fechado — Punhos (terceira pessoa)",
+              "action": "classe:punhos",
+              "next": "escolha_punhos",
+              "end": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "escolha_mago",
+      "lines": [
+        {
+          "s": "mestre",
+          "t": "A Mão Aberta. Palmas firmes, olhar mais firme ainda.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Clique para lançar dardos. O terceiro dardo do ritmo é mais pesado. Com o botão direito você ergue um selo: na hora certa, ele devolve o golpe.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "",
+          "t": "",
+          "next": "licao",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "escolha_punhos",
+      "lines": [
+        {
+          "s": "mestre",
+          "t": "O Punho Fechado. Bom. Os punhos não mentem.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Três golpes formam o ritmo, e o terceiro abala o chão. Com o botão direito você ergue a guarda: na hora certa, ela quebra o ataque do outro.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "",
+          "t": "",
+          "next": "licao",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "licao",
+      "lines": [
+        {
+          "s": "mestre",
+          "t": "A última lição vale para os dois caminhos: o golpe que brilha vermelho pode ser aparado. O que brilha laranja, só se evita.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Escute o tempo, não a força. Desvie no último instante e o mundo desacelera para você.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Cada caminho guarda técnicas que eu posso te ensinar. Traga Ecos das Profundezas e venha treinar comigo.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Aquele boneco de treino ataca devagar. Pratique nele. Quando estiver pronto, o portal ao norte leva às Profundezas.",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "mestre_menu",
+      "lines": [
+        {
+          "s": "mestre",
+          "t": "{saudacao}",
+          "next": "",
+          "choices": [
+            {
+              "t": "Peça um conselho",
+              "action": "",
+              "next": "conselho",
+              "end": false
+            },
+            {
+              "t": "Fale sobre o Arauto",
+              "action": "",
+              "next": "sobre_arauto",
+              "end": false
+            },
+            {
+              "t": "Troque de caminho",
+              "action": "",
+              "next": "trocar",
+              "end": false
+            },
+            {
+              "t": "Treine sua técnica (árvore de habilidades)",
+              "action": "skills",
+              "next": "",
+              "end": false
+            },
+            {
+              "t": "Fortaleça-se com Ecos",
+              "action": "meta",
+              "next": "",
+              "end": false
+            },
+            {
+              "t": "Até logo",
+              "action": "",
+              "next": "",
+              "end": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "conselho",
+      "lines": [
+        {
+          "s": "mestre",
+          "t": "{conselho}",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "sobre_arauto",
+      "lines": [
+        {
+          "s": "mestre",
+          "t": "Ele já foi alguém. Ninguém vira Arauto por acaso.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Mais do que isso eu não sei dizer. Ou não quero.",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "trocar",
+      "lines": [
+        {
+          "s": "mestre",
+          "t": "Hoje você segue o {caminho}. Quer mudar?",
+          "next": "",
+          "choices": [
+            {
+              "t": "Mão Aberta — Mago",
+              "action": "classe:mago",
+              "next": "trocado",
+              "end": false
+            },
+            {
+              "t": "Punho Fechado — Punhos",
+              "action": "classe:punhos",
+              "next": "trocado",
+              "end": false
+            },
+            {
+              "t": "Manter como está",
+              "action": "",
+              "next": "",
+              "end": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trocado",
+      "lines": [
+        {
+          "s": "mestre",
+          "t": "Então será o {caminho}. O corpo esquece rápido; a vontade, não.",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "retorno_morte",
+      "lines": [
+        {
+          "s": "narrador",
+          "t": "O eco de você se refaz ao pé do Sino partido.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "{retorno}",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "retorno_vitoria",
+      "lines": [
+        {
+          "s": "mestre",
+          "t": "O Sino soa de novo. Escute: o mundo está lembrando.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Mas o Arauto voltará a se formar enquanto houver esquecimento. Se quiser descer outra vez, o portal continua aberto.",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "arauto_intro_0",
+      "lines": [
+        {
+          "s": "arauto",
+          "t": "Um aprendiz. Rafael continua mandando crianças para o fundo.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "arauto",
+          "t": "Venha. Vou te ensinar o que ele esqueceu de contar.",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "arauto_intro_1",
+      "lines": [
+        {
+          "s": "arauto",
+          "t": "De novo você. O calor da forja não te faz lembrar de nada?",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "arauto_intro_2",
+      "lines": [
+        {
+          "s": "arauto",
+          "t": "Aqui embaixo tudo congela, até a memória. É o último lugar onde eu fico em paz.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "arauto",
+          "t": "Não vou deixar você levar isso de mim.",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "arauto_derrota_0",
+      "lines": [
+        {
+          "s": "arauto",
+          "t": "Esse ritmo... é o dele. Ele ainda ensina do mesmo jeito.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "narrador",
+          "t": "Você recolhe o primeiro fragmento do Sino. Ele vibra, e de dentro dele vem uma voz conhecida.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "eco",
+          "t": "Um fragmento. Não pare agora. Desça.",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "arauto_derrota_1",
+      "lines": [
+        {
+          "s": "arauto",
+          "t": "Você sente, não sente? O Sino nunca guardou memórias. Ele as prendia.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "eco",
+          "t": "Não dê ouvidos a ele. Falta só um.",
+          "next": "",
+          "choices": []
+        }
+      ]
+    },
+    {
+      "id": "final",
+      "lines": [
+        {
+          "s": "arauto",
+          "t": "Leve o último fragmento. E pergunte ao seu mestre por que ele nunca desceu sozinho.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "narrador",
+          "t": "Os três fragmentos se encontram. O Sino do Eco soa pela primeira vez em uma geração.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "Você conseguiu. O mundo vai voltar a lembrar...",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "mestre",
+          "t": "...e eu também vou ter que lembrar do que fiz.",
+          "next": "",
+          "choices": []
+        },
+        {
+          "s": "narrador",
+          "t": "Fim do primeiro capítulo.",
+          "next": "",
+          "choices": []
+        }
+      ]
+    }
+  ],
+  "conselhos": [
+    "Não ataque só porque pode. Ataque quando o outro terminou de atacar.",
+    "Os Duelistas fingem. Espere o brilho, não o movimento.",
+    "O Bruto bate forte, mas a onda dele corre pelo chão. Pule por cima.",
+    "Flechas aparadas voam para onde você olha. Olhe para quem atirou.",
+    "A postura do inimigo é a barra amarela. Quebre-a e ele fica à sua mercê.",
+    "O Arauto muda de ritmo quando sangra. Na segunda metade, ele não para."
+  ],
+  "retornos": [
+    "Você voltou. Respire. O que doeu lá embaixo agora é lição.",
+    "O Arauto não é mais forte que você. Só mais paciente.",
+    "Cada queda deixa um eco. Os ecos se somam.",
+    "Eu também caí muitas vezes, há muito tempo. Levante-se."
+  ],
+  "saudacoes": [
+    "Pronto para descer de novo?",
+    "O Sino espera. Eu também.",
+    "Fale, aprendiz."
+  ]
+}

@@ -36,7 +36,11 @@ O golpe supremo **[V]** gasta a **Ressonância**, que enche com aparos (+20), es
 
 O protagonista do Caminho do Punho Fechado (e do menu) é um modelo próprio convertido de STL por `tools/stl_to_segmented_glb.py` para `assets/models/protagonista.glb`. Veja [docs/MODELOS.md](docs/MODELOS.md).
 
-## Como rodar
+## Versão Unity
+
+O jogo também foi portado para Unity 6 em [`unity/`](unity/README.md): mesma lógica, história, árvores de habilidade e protagonista, montado por código (abra a pasta no Unity Hub e aperte Play em qualquer cena). A versão web continua aqui como protótipo.
+
+## Como rodar (versão web)
 
 ```bash
 python3 -m http.server 8000
@@ -103,7 +107,8 @@ src/data.js       classes, bênçãos, melhorias, tipos de sala
 src/fx.js         partículas, números de dano, efeitos de tela
 src/audio.js      efeitos sonoros sintetizados (WebAudio)
 assets/models/    modelos .glb (protagonista.glb incluído; ver docs/MODELOS.md)
-tools/            conversor STL em T-pose → .glb segmentado
+tools/            conversor STL em T-pose → .glb segmentado (e .bytes da Unity), conversor da história para JSON
+unity/            projeto Unity (ver unity/README.md)
 ```
 
 Para depurar, o objeto `window.game` fica exposto no console.
