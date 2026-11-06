@@ -70,4 +70,5 @@ Os materiais são criados por código com `Shader.Find`. Num build, a Unity só 
 
 - **Interface em IMGUI**: funciona e lê tudo do `GameManager`, mas para a versão final vale trocar por UI Toolkit ou uGUI.
 - **Colisão própria**: círculos e limites de sala, como no protótipo, sem física da Unity. Para níveis feitos à mão, troque por `CharacterController`/colliders.
+- **IA na Unity**: o plugin Unity-MCP já está instalado; veja [MCP.md](MCP.md) para ligar o Claude ao editor.
 - **Save**: JSON em `Application.persistentDataPath/eco-da-lamina-save.json`.
