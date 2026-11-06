@@ -483,6 +483,7 @@ export class Projectile {
     this.playerShot = false; // disparo do jogador (mago)
     this.posture = 25;
     this.aoe = 0;
+    this.pierce = 0;
     const color = unparryable ? 0xff8a00 : 0xff2a3a;
     this.mesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), new THREE.MeshBasicMaterial({ color }));
     this.mesh.scale.z = 3.2;
@@ -528,7 +529,7 @@ export class Projectile {
     for (const p of room.pillars) {
       if (Math.hypot(this.pos.x - p.x, this.pos.z - p.z) < p.r && this.pos.y < 8) {
         // Torres só bloqueiam até a altura delas
-        if (room.towers.length && this.pos.y > 3) continue;
+        if (room.towers.length && this.pos.y > 2.6) continue;
         return this.kill();
       }
     }
@@ -536,8 +537,10 @@ export class Projectile {
       for (const e of game.enemies) {
         if (e.dead) continue;
         const c = e.pos.clone(); c.y = e.baseY + e.def.height * 0.55;
+        if (this.hitSet && this.hitSet.has(e)) continue;
         if (c.distanceTo(this.pos) < e.radius + 0.6 + e.def.height * 0.15) {
           game.projectileHitEnemy(this, e);
+          if (this.pierce > 0) { this.pierce--; (this.hitSet = this.hitSet || new Set()).add(e); continue; }
           return this.kill();
         }
       }

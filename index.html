@@ -27,6 +27,10 @@
       <div id="hp-wrap"><div id="hp-ghost"></div><div id="hp-bar"></div><span id="hp-text">100 / 100</span></div>
       <div id="dash-pips"></div>
       <div id="fury"></div>
+      <div id="abilities">
+        <div id="ab-r" class="ab hidden"><span class="key">R</span><span class="nm"></span><div class="cd"></div></div>
+        <div id="ab-v" class="ab hidden"><span class="key">V</span><span class="nm"></span><div class="res"><div class="res-fill"></div></div></div>
+      </div>
     </div>
     <div id="hud-bottom-right">
       <div id="weapon-name">Espada</div>
@@ -45,6 +49,7 @@
     <p id="menu-path" class="muted"></p>
     <div class="row">
       <button id="btn-start" class="primary">Jogar</button>
+      <button id="btn-skills">Árvore de Habilidades</button>
       <button id="btn-meta">Santuário (melhorias)</button>
       <button id="btn-help">Como jogar</button>
     </div>
@@ -60,6 +65,19 @@
     <button id="btn-meta-back">Voltar</button>
   </div>
 
+  <!-- Árvore de habilidades -->
+  <div id="skills" class="screen hidden">
+    <h2>Árvore de Habilidades</h2>
+    <p class="muted">Cada caminho tem a sua árvore. Compre os nós de cima para baixo com Ecos.</p>
+    <div class="row" id="skills-tabs"></div>
+    <div id="skills-ecos" class="muted"></div>
+    <div id="skills-tree" class="tree"></div>
+    <div class="row">
+      <button id="btn-skills-reset">Redistribuir pontos</button>
+      <button id="btn-skills-back" class="primary">Voltar</button>
+    </div>
+  </div>
+
   <!-- Ajuda -->
   <div id="help" class="screen hidden">
     <h2>Como jogar</h2>
@@ -68,6 +86,7 @@
       <div><kbd>Botão esq.</kbd> atacar / lançar (ritmo de 3)</div>
       <div><kbd>Botão dir.</kbd> ou <kbd>F</kbd> aparar (selo ou guarda)</div>
       <div><kbd>E</kbd> falar / interagir</div>
+      <div><kbd>R</kbd> habilidade do caminho · <kbd>V</kbd> golpe supremo</div>
       <div><kbd>Shift</kbd> esquiva (dash com invencibilidade)</div>
       <div><kbd>Espaço</kbd> pular (ondas de choque!)</div>
       <div><kbd>Esc</kbd> pausar</div>
@@ -76,7 +95,8 @@
     <ul>
       <li><b>Mão Aberta (Mago)</b>: primeira pessoa. Dardos arcanos à distância; o 3º do ritmo explode. O selo rúnico apara golpes e reflete projéteis.</li>
       <li><b>Punho Fechado (Punhos)</b>: terceira pessoa. Combos de soco que miram o inimigo mais próximo; o 3º golpe abala o chão. +1 esquiva.</li>
-      <li>Troque de caminho falando com o Mestre Oren no mosteiro.</li>
+      <li>Troque de caminho falando com o Mestre Rafael no mosteiro.</li>
+      <li>Cada caminho tem uma <b>árvore de habilidades</b> com 3 ramos. O fim de um ramo dá a habilidade <kbd>R</kbd>; o de outro, o golpe supremo <kbd>V</kbd>, que carrega com aparos e esquivas perfeitas (Ressonância).</li>
     </ul>
     <h3>Leia os ataques</h3>
     <ul>

@@ -9,10 +9,11 @@ import { CLASSES, BOONS, baseStats, ROOM_TYPES, FLOORS, HUB_THEME, loadSave, wri
 import { createCharacter } from './models.js';
 import { DialogueUI } from './dialogue.js';
 import { CONSELHOS, RETORNOS, SAUDACOES } from './story.js';
+import { applySkills, ABILITY_INFO } from './skills.js';
 
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 
-// Personagem não-hostil (ex.: Mestre Oren). Olha para o jogador e gesticula ao falar.
+// Personagem não-hostil (ex.: Mestre Rafael). Olha para o jogador e gesticula ao falar.
 class Npc {
   constructor(game, key, name, pos, procOpts) {
     this.game = game;
@@ -98,6 +99,19 @@ export class Game {
   }
 
   // ---------- Run ----------
+  // Atributos base + melhorias permanentes + árvore de habilidades do caminho atual.
+  computeStats() {
+    const cls = this.currentClass();
+    return applySkills(baseStats(this.save.meta), this.save, cls && cls.id);
+  }
+
+  // Depois de comprar habilidades no mosteiro, recria o jogador com os novos atributos.
+  refreshHubStats() {
+    if (!this.run || !this.run.isHub) return;
+    this.run.stats = this.computeStats();
+    this.makePlayer(this.currentClass(), this.run.stats);
+  }
+
   currentClass() { return this.save.story.classe ? CLASSES[this.save.story.classe] : null; }
 
   // Recria o jogador (troca de classe muda a câmera e o modelo).
@@ -111,8 +125,10 @@ export class Game {
 
   // ---------- Mosteiro (hub) ----------
   enterHub(reason = null) {
+    if (this.menuHero) { this.menuHero.dispose(); this.menuHero = null; }
+    this.camera.clearViewOffset();
     this.run = {
-      isHub: true, type: 'hub', floor: 0, roomIndex: 0, stats: baseStats(this.save.meta), boons: [], ecos: 0,
+      isHub: true, type: 'hub', floor: 0, roomIndex: 0, stats: this.computeStats(), boons: [], ecos: 0,
       kills: 0, parries: 0, perfectDodges: 0, rooms: 0, startTime: performance.now(),
     };
     this.buildRoom('hub', HUB_THEME);
@@ -121,7 +137,7 @@ export class Game {
     const p = this.player;
     this.roomState = { hub: true, cleared: true, rewardGiven: true, doorsOpen: true, duel: false, started: 0, waves: [] };
     this.room.addDoors([{ type: 'profundezas', rewardText: 'Descer' }], ROOM_TYPES);
-    this.master = new Npc(this, 'mestre', 'Mestre Oren', new THREE.Vector3(-3.2, 0, -0.5), {
+    this.master = new Npc(this, 'mestre', 'Mestre Rafael', new THREE.Vector3(-3.2, 0, -0.5), {
       height: 1.75, color: 0x4a3a2e, skin: 0xc89a78, robe: 0x6a5030, beard: 0xe8e4dc, hood: 0x3a2c20, weapon: 'staff', eyeColor: 0xe8c27a,
     });
     this.npcs.push(this.master);
@@ -165,9 +181,12 @@ export class Game {
       this.input.pressed.clear(); // a tecla que fechou o diálogo não deve virar pulo/interação
       this.last = performance.now();
       if (this.pendingMeta) {
+        const which = this.pendingMeta;
         this.pendingMeta = false;
         this.state = 'meta';
-        this.ui.openMeta(() => { this.state = 'playing'; this.input.lock(); this.last = performance.now(); });
+        const back = () => { this.refreshHubStats(); this.state = 'playing'; this.input.lock(); this.last = performance.now(); };
+        if (which === 'skills') this.ui.openSkills(this.currentClass().id, back);
+        else this.ui.openMeta(back);
         return;
       }
       this.state = 'playing';
@@ -183,8 +202,8 @@ export class Game {
       writeSave(this.save);
       this.makePlayer(CLASSES[id], this.run.stats);
       this.player.locked = true;
-    } else if (action === 'meta') {
-      this.pendingMeta = true;
+    } else if (action === 'meta' || action === 'skills') {
+      this.pendingMeta = action;
       this.dialogue.finish();
     }
   }
@@ -194,7 +213,7 @@ export class Game {
     const cls = this.currentClass();
     this.run = {
       cls, floor: 0, roomIndex: 0, type: 'combate',
-      stats: baseStats(this.save.meta), boons: [], ecos: 0,
+      stats: this.computeStats(), boons: [], ecos: 0,
       kills: 0, parries: 0, perfectDodges: 0, rooms: 0, startTime: performance.now(),
     };
     this.makePlayer(cls, this.run.stats);
@@ -219,6 +238,7 @@ export class Game {
   }
 
   clearEntities() {
+    this.mines = [];
     for (const n of this.npcs) n.dispose();
     this.npcs = [];
     this.master = null;
@@ -407,7 +427,7 @@ export class Game {
   updateHub() {
     const p = this.player;
     const near = this.master && p.pos.distanceTo(this.master.pos) < 2.8;
-    this.ui.prompt(near ? '[E] Falar com Mestre Oren' : null);
+    this.ui.prompt(near ? '[E] Falar com Mestre Rafael' : null);
     if (near && this.input.consume('KeyE')) { this.startDialogue('mestre_menu'); return; }
     for (const d of this.room.doors) {
       if (Math.abs(p.pos.x - d.x) < 1.5 && p.pos.z < d.z + 1.3) {
@@ -551,6 +571,7 @@ export class Game {
       let crit = false;
       if (p.critNext) { dmg *= (w.perfectDodgeCrit || 2); crit = true; }
       if (e.isStunned()) { dmg *= e.broken ? st.executeMult : st.riposteMult; crit = true; }
+      if (st.counterHit && p.counterT > 0) { dmg *= 2; crit = true; p.heal(4); }
       const postureDmg = 7 * w.postureMult * st.postureMult * mult;
       const pos = e.pos.clone(); pos.y = e.baseY + e.def.height * 0.6;
       if (this.roomState.duel && !e.isStunned() && !p.critNext) {
@@ -568,16 +589,18 @@ export class Game {
       this.fx.number(e.pos, String(dmg), crit);
       this.fx.burst(pos, crit ? 0xffd34a : 0xff4a5a, crit ? 18 : 9, crit ? 7 : 5, 0.4);
       hitAny = true; critAny = critAny || crit;
+      this.addResonance(3);
     }
     if (hitAny) {
       this.hitstop = Math.max(this.hitstop, critAny ? 0.09 : 0.045);
       this.fx.addShake(critAny ? 0.25 : 0.1);
       critAny ? sfx.crit() : sfx.hit();
       p.critNext = false;
+      p.counterT = 0;
     }
     if (combo === 2) {
       if (w.finisher) {
-        const R = w.finisher.radius;
+        const R = w.finisher.radius * st.quakeMult;
         const c = p.pos.clone().addScaledVector(fwd, 1.5);
         this.fx.ring(c, w.color, R, 0.35);
         this.fx.addShake(0.3);
@@ -587,7 +610,7 @@ export class Game {
           if (Math.hypot(e.pos.x - c.x, e.pos.z - c.z) < R + e.radius && !this.roomState.duel) {
             const dmg = Math.round(w.damage * st.dmgMult * w.finisher.mult);
             e.takeDamage(dmg, new THREE.Vector3(e.pos.x - c.x, 0, e.pos.z - c.z).normalize(), 8);
-            if (!e.dead) e.addPosture(20 * st.postureMult);
+            if (!e.dead) e.addPosture(20 * st.postureMult * st.quakeMult);
             this.fx.number(e.pos, String(dmg));
           }
         }
@@ -615,14 +638,16 @@ export class Game {
     let dmg = w.damage * st.dmgMult * w.comboMults[combo] * fury;
     let crit = false;
     if (p.critNext) { dmg *= (w.perfectDodgeCrit || 2); crit = true; p.critNext = false; }
+    else if (st.ecoTemporal && this.slowmo > 0) { dmg *= 2; crit = true; }
     const shoot = (angle) => {
       const dir = target.clone().sub(origin).normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
       const pr = new Projectile(this, origin.clone(), dir.multiplyScalar(w.boltSpeed * (heavy ? 0.8 : 1)), dmg * (angle ? 0.5 : 1), false, null);
       pr.reflected = true;
       pr.playerShot = true;
       pr.crit = crit;
-      pr.posture = 6 * w.postureMult * st.postureMult * w.comboMults[combo] * (heavy ? 2 : 1);
-      pr.aoe = heavy ? 2.4 : 0;
+      pr.posture = 6 * w.postureMult * st.postureMult * w.comboMults[combo] * (heavy ? 2 * st.orbMult : 1);
+      pr.aoe = heavy ? 2.4 * st.orbMult : 0;
+      pr.pierce = st.pierce;
       pr.mesh.material.color.set(heavy ? 0xd8c8ff : w.color);
       pr.trail.color.set(w.color);
       if (heavy) pr.mesh.scale.set(2, 2, 3);
@@ -632,6 +657,152 @@ export class Game {
     if (heavy && st.slashWave) { shoot(0.18); shoot(-0.18); }
     sfx.shoot();
     if (heavy) this.fx.addShake(0.08);
+  }
+
+  // ---------- Habilidades da árvore ----------
+  addResonance(v) {
+    const p = this.player;
+    if (!p || !this.run.stats.ultimate) return;
+    const before = p.res;
+    p.res = Math.min(100, p.res + v);
+    if (before < 100 && p.res >= 100) { this.fx.callout('RESSONÂNCIA PLENA [V]', '#e8c27a', 0.8); sfx.pickup(); }
+  }
+
+  nearestEnemy(pos, maxD, exclude = null) {
+    let best = null, bd = maxD;
+    for (const e of this.enemies) {
+      if (e.dead || (exclude && exclude.has(e))) continue;
+      const d = e.pos.distanceTo(pos);
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  }
+
+  enemyCenter(e) { const c = e.pos.clone(); c.y = e.baseY + e.def.height * 0.6; return c; }
+
+  // Dano de habilidade: respeita atordoamento e o modo Duelo (lá só quebra postura).
+  skillHit(e, base, posture, color, knock = null) {
+    const st = this.run.stats;
+    let dmg = base * st.dmgMult, crit = false;
+    if (e.isStunned()) { dmg *= e.broken ? st.executeMult : st.riposteMult; crit = true; }
+    if (this.roomState.duel && !e.isStunned()) { e.addPosture(posture * 1.5); this.fx.number(e.pos, 'BLOQUEADO', false, '#999'); return; }
+    dmg = Math.round(dmg);
+    e.takeDamage(dmg, knock, knock ? 6 : 0);
+    if (!e.dead) e.addPosture(posture * st.postureMult);
+    this.fx.number(e.pos, String(dmg), crit, crit ? null : color);
+  }
+
+  useAbilityR() {
+    const p = this.player, st = this.run.stats;
+    if (!st.abilityR) return;
+    if (p.cdR > 0) { sfx.parryWhiff(); return; }
+    const info = ABILITY_INFO[st.abilityR];
+    if (st.abilityR === 'raio') {
+      const origin = p.muzzle(0);
+      const fwd = p.aimDir3();
+      const camPos = new THREE.Vector3(); this.camera.getWorldPosition(camPos);
+      let first = null, bestDot = 0.85;
+      for (const e of this.enemies) {
+        if (e.dead || e.pos.distanceTo(p.pos) > 26) continue;
+        const dot = this.enemyCenter(e).sub(camPos).normalize().dot(fwd);
+        if (dot > bestDot) { bestDot = dot; first = e; }
+      }
+      first = first || this.nearestEnemy(p.pos, 12);
+      if (!first) { this.fx.callout('SEM ALVO', '#999', 0.4); return; }
+      const hit = new Set();
+      const pts = [origin];
+      let cur = first;
+      for (let i = 0; i < 4 && cur; i++) {
+        hit.add(cur);
+        pts.push(this.enemyCenter(cur));
+        this.skillHit(cur, 28, 18, '#bfa8ff');
+        this.fx.burst(this.enemyCenter(cur), 0xbfa8ff, 10, 5, 0.3);
+        cur = this.nearestEnemy(cur.pos, 7, hit);
+      }
+      this.fx.beam(pts, 0xd8c8ff, 0.3);
+      sfx.reflect(); this.hitstop = Math.max(this.hitstop, 0.05);
+    } else if (st.abilityR === 'dragao') {
+      p.dragonDash();
+      this.dragonHits = new Set();
+      sfx.dodge(); sfx.swing();
+      this.fx.callout('INVESTIDA DO DRAGÃO', '#ffb27a', 0.5);
+    }
+    p.cdR = info.cooldown;
+    this.addResonance(5);
+  }
+
+  useUltimate() {
+    const p = this.player, st = this.run.stats;
+    if (!st.ultimate) return;
+    if (p.res < 100) { this.fx.callout('RESSONÂNCIA INSUFICIENTE', '#999', 0.5); return; }
+    p.res = 0;
+    this.ultTick = 0;
+    this.fx.flash(0.4, '#e8c27a');
+    this.fx.addShake(0.4);
+    sfx.slam();
+    if (st.ultimate === 'tempestade') { p.stormT = 3; this.fx.callout('TEMPESTADE DE ECOS', '#bfa8ff', 1.0); }
+    else if (st.ultimate === 'cem') { p.flurryT = 2; p.attackT = -1; this.fx.callout('CEM PUNHOS', '#ffb27a', 1.0); }
+  }
+
+  onPlayerDodge() {
+    const st = this.run && this.run.stats;
+    if (st && st.dodgeMine) (this.mines = this.mines || []).push({ pos: this.player.pos.clone(), t: 0.55 });
+  }
+
+  updateAbilities(dt) {
+    const p = this.player, st = this.run.stats;
+    // Investida do Dragão: acerta quem estiver no caminho
+    if (p.dragonT > 0 && this.dragonHits) {
+      for (const e of this.enemies) {
+        if (e.dead || e.baseY > 1.5 || this.dragonHits.has(e)) continue;
+        if (Math.hypot(e.pos.x - p.pos.x, e.pos.z - p.pos.z) < e.radius + 1.4) {
+          this.dragonHits.add(e);
+          this.skillHit(e, 35, 25, '#ffb27a', e.pos.clone().sub(p.pos).setY(0).normalize());
+          this.fx.burst(this.enemyCenter(e), 0xffb27a, 14, 6, 0.35);
+          sfx.crit(); this.hitstop = Math.max(this.hitstop, 0.04);
+        }
+      }
+      this.fx.burst(p.pos.clone().setY(1), 0xffb27a, 2, 2, 0.3);
+    }
+    // Golpes supremos
+    if (p.stormT > 0 || p.flurryT > 0) {
+      this.ultTick -= dt;
+      if (this.ultTick <= 0) {
+        if (p.stormT > 0) {
+          this.ultTick = 0.12;
+          const near = this.enemies.filter(e => !e.dead && e.pos.distanceTo(p.pos) < 16);
+          if (near.length) {
+            const e = near[Math.floor(Math.random() * near.length)];
+            const c = this.enemyCenter(e);
+            this.fx.beam([c.clone().add(new THREE.Vector3((Math.random() - 0.5) * 2, 12, (Math.random() - 0.5) * 2)), c], 0xd8c8ff, 0.18);
+            this.skillHit(e, 14, 10, '#bfa8ff');
+            sfx.hit();
+          }
+        } else {
+          this.ultTick = 0.09;
+          const fwd = p.aimForward();
+          p.faceAim();
+          let any = false;
+          for (const e of this.enemies) {
+            if (e.dead || e.baseY > 1.5) continue;
+            const to = new THREE.Vector3(e.pos.x - p.pos.x, 0, e.pos.z - p.pos.z);
+            if (to.length() - e.radius > 3.2 || fwd.dot(to.normalize()) < 0.3) continue;
+            this.skillHit(e, 7, 6, '#ffb27a');
+            any = true;
+          }
+          if (any) { sfx.hit(); this.fx.burst(p.pos.clone().addScaledVector(fwd, 1.5).setY(1.3), 0xffd0a0, 6, 5, 0.25); }
+          else sfx.swing();
+        }
+      }
+    }
+    // Runas do Rastro Arcano
+    if (this.mines && this.mines.length) {
+      for (const m of this.mines) {
+        m.t -= dt;
+        if (m.t <= 0) this.areaDamage(m.pos, 3, st.dodgeMine, 0xbfa8ff);
+      }
+      this.mines = this.mines.filter(m => m.t > 0);
+    }
   }
 
   // Resolve um golpe inimigo contra o jogador.
@@ -666,6 +837,8 @@ export class Game {
     this.fx.addShake(0.2);
     p.parryFlash = 1;
     p.parryCooldown = 0;
+    p.counterT = 1.2;
+    this.addResonance(20);
     if (st.fury) p.fury = Math.min(6, p.fury + 1);
     const spark = p.eye().addScaledVector(new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion), 0.9);
     this.fx.burst(spark, 0xffe08a, 22, 7, 0.45, 0.8);
@@ -696,6 +869,19 @@ export class Game {
     this.fx.callout('ESQUIVA PERFEITA', '#5ce1ff', 0.8);
     this.fx.flash(0.2, '#5ce1ff');
     if (st.dodgeExplosion) this.areaDamage(p.pos, 4.5, st.dodgeExplosion, 0x5ce1ff);
+    this.addResonance(25);
+    if (st.contraEsquiva) {
+      const e = this.nearestEnemy(p.pos, 6);
+      if (e) {
+        const d = Math.round(30 * st.dmgMult);
+        e.takeDamage(d, e.pos.clone().sub(p.pos).setY(0).normalize(), 6);
+        if (!e.dead) e.addPosture(30 * st.postureMult);
+        this.fx.number(e.pos, String(d), true, '#5ce1ff');
+        this.fx.beam([p.pos.clone().setY(1.2), e.pos.clone().setY(1.2)], 0x5ce1ff, 0.2);
+        this.fx.burst(e.pos.clone().setY(1.2), 0x5ce1ff, 14, 6, 0.4);
+        sfx.crit();
+      }
+    }
   }
 
   areaDamage(center, radius, dmg, color) {
@@ -721,7 +907,7 @@ export class Game {
       this.fx.hurt(); sfx.hurt(); p.onHurt();
       return;
     }
-    dmg = Math.round(dmg);
+    dmg = Math.round(dmg * this.run.stats.damageTaken);
     p.onHurt();
     p.hp -= dmg;
     p.hurtCooldown = 0.4;
@@ -780,6 +966,7 @@ export class Game {
     if (p.isParrying() && !pr.unparryable) {
       const dir = this.aimAssist(p.eye());
       pr.reflect(dir, this.run.stats.reflectMult, this.run.stats.reflectHoming);
+      pr.vel.multiplyScalar(this.run.stats.reflectSpeed);
       pr.pos.copy(p.eye()).addScaledVector(dir, 1.0);
       sfx.reflect();
       this.parry(null, null);
@@ -811,6 +998,7 @@ export class Game {
       if (!e.dead) e.addPosture(pr.posture);
       this.fx.number(e.pos, String(dmg), crit, crit ? null : '#c8b8ff');
       this.fx.burst(at, this.player.cls.color, crit ? 16 : 8, 5, 0.35);
+      this.addResonance(2);
       crit ? sfx.crit() : sfx.hit();
       this.hitstop = Math.max(this.hitstop, crit ? 0.07 : 0.03);
       if (pr.aoe) {
@@ -904,6 +1092,13 @@ export class Game {
     });
   }
 
+  // Protagonista girando no fundo do menu.
+  showMenuHero() {
+    if (this.menuHero) this.menuHero.dispose();
+    this.menuHero = createCharacter('protagonista', { height: 1.8, color: 0x3a3048, skin: 0xd9a882 });
+    this.scene.add(this.menuHero.root);
+  }
+
   quitToMenu() {
     this.state = 'menu';
     this.input.unlock();
@@ -915,6 +1110,7 @@ export class Game {
     this.camera.position.set(0, 3, 12);
     this.camera.rotation.set(0, 0, 0);
     this.ui.showHUD(false);
+    this.showMenuHero();
   }
 
   // ---------- Loop ----------
@@ -929,9 +1125,13 @@ export class Game {
 
   step(realDt) {
     if (this.state === 'menu') {
-      const t = this.elapsed * 0.15;
-      this.camera.position.set(Math.sin(t) * 12, 3.5, Math.cos(t) * 12);
-      this.camera.lookAt(0, 1.5, 0);
+      const t = this.elapsed * 0.25;
+      this.camera.position.set(Math.sin(t) * 4.2, 1.7, Math.cos(t) * 4.2);
+      this.camera.lookAt(0, 1.05, 0);
+      if (this.menuHero) { this.menuHero.play('idle'); this.menuHero.update(realDt); }
+      // Desloca a imagem para o herói ficar à direita do texto do menu
+      if (innerWidth > 760) this.camera.setViewOffset(innerWidth, innerHeight, -innerWidth * 0.2, 0, innerWidth, innerHeight);
+      else this.camera.clearViewOffset();
       this.fx.update(realDt, realDt);
       return;
     }
@@ -958,6 +1158,11 @@ export class Game {
 
     const p = this.player;
     p.update(pdt, this.input, this);
+    if (!p.locked && !p.dead) {
+      if (this.input.consume('KeyR')) this.useAbilityR();
+      if (this.input.consume('KeyV')) this.useUltimate();
+    }
+    this.updateAbilities(dt);
     for (const n of this.npcs) n.update(dt);
     for (const e of this.enemies) e.update(dt);
     this.enemies = this.enemies.filter(e => !e.removed);

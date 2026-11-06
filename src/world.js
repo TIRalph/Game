@@ -134,7 +134,7 @@ export class Room {
     // Luzes
     const lightColor = theme.light;
     for (const [x, z] of [[0, 0], [this.half * 0.6, this.half * 0.6], [-this.half * 0.6, -this.half * 0.6]]) {
-      const l = new THREE.PointLight(lightColor, 160, size * 1.2, 1.2);
+      const l = new THREE.PointLight(lightColor, theme.points ?? 160, size * 1.2, 1.2);
       l.position.set(x, 6, z);
       this.group.add(l);
     }

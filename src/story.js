@@ -11,15 +11,15 @@
 
 export const SPEAKERS = {
   narrador: { name: '', color: '#b9b4cc' },
-  mestre: { name: 'Mestre Oren', color: '#e8c27a' },
+  mestre: { name: 'Mestre Rafael', color: '#e8c27a' },
   aprendiz: { name: 'Você', color: '#9ad0ff' },
   arauto: { name: 'O Arauto', color: '#ff5a6e' },
-  eco: { name: 'Eco de Oren', color: '#e8c27a' },
+  eco: { name: 'Eco de Rafael', color: '#e8c27a' },
 };
 
 export const LORE = {
   mundo: 'O Sino do Eco guardava a memória do mundo: cada voz, cada passo, cada vida ressoava nele. Quando o Arauto o partiu em três, o mundo começou a esquecer.',
-  mosteiro: 'O Mosteiro do Eco fica no alto dos mil degraus. Ali vive Oren, último guardião do Sino.',
+  mosteiro: 'O Mosteiro do Eco fica no alto dos mil degraus. Ali vive Rafael, último guardião do Sino.',
   eco: 'Nas Profundezas, quem cai não morre: vira eco e volta ao pé do Sino, lembrando do que aprendeu.',
   caminhos: {
     mago: 'A Mão Aberta molda o eco em magia: dardos arcanos e selos rúnicos.',
@@ -33,7 +33,7 @@ export const DIALOGUES = {
     { s: 'narrador', t: 'Então o Arauto desceu das montanhas e partiu o Sino em três. Desde aquele dia, o mundo esquece.' },
     { s: 'narrador', t: 'Você subiu os mil degraus do Mosteiro do Eco atrás da única pessoa que ainda se lembra.' },
     { s: 'mestre', t: 'Então você veio. Achei que o silêncio já tivesse levado o último aprendiz.' },
-    { s: 'mestre', t: 'Sou Oren. Fui guardião do Sino antes que ele se calasse.' },
+    { s: 'mestre', t: 'Sou Rafael. Fui guardião do Sino antes que ele se calasse.' },
     { s: 'aprendiz', t: 'Disseram que o senhor sabe como fazê-lo soar de novo.' },
     { s: 'mestre', t: 'Os fragmentos caíram nas Profundezas: a Cripta Esquecida, a Forja Rubra e o Abismo Glacial. O Arauto guarda cada um deles.' },
     { s: 'mestre', t: 'Lá embaixo, quem cai não morre. Vira eco e volta para cá, ao pé do Sino. Lembra do que aprendeu e esquece o resto.' },
@@ -59,6 +59,7 @@ export const DIALOGUES = {
   licao: [
     { s: 'mestre', t: 'A última lição vale para os dois caminhos: o golpe que brilha vermelho pode ser aparado. O que brilha laranja, só se evita.' },
     { s: 'mestre', t: 'Escute o tempo, não a força. Desvie no último instante e o mundo desacelera para você.' },
+    { s: 'mestre', t: 'Cada caminho guarda técnicas que eu posso te ensinar. Traga Ecos das Profundezas e venha treinar comigo.' },
     { s: 'mestre', t: 'Aquele boneco de treino ataca devagar. Pratique nele. Quando estiver pronto, o portal ao norte leva às Profundezas.' },
   ],
 
@@ -68,6 +69,7 @@ export const DIALOGUES = {
       { t: 'Peça um conselho', next: 'conselho' },
       { t: 'Fale sobre o Arauto', next: 'sobre_arauto' },
       { t: 'Troque de caminho', next: 'trocar' },
+      { t: 'Treine sua técnica (árvore de habilidades)', action: 'skills' },
       { t: 'Fortaleça-se com Ecos', action: 'meta' },
       { t: 'Até logo', next: null },
     ] },
@@ -100,7 +102,7 @@ export const DIALOGUES = {
 
   // Chefes
   arauto_intro_0: [
-    { s: 'arauto', t: 'Um aprendiz. Oren continua mandando crianças para o fundo.' },
+    { s: 'arauto', t: 'Um aprendiz. Rafael continua mandando crianças para o fundo.' },
     { s: 'arauto', t: 'Venha. Vou te ensinar o que ele esqueceu de contar.' },
   ],
   arauto_intro_1: [

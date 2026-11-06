@@ -6,7 +6,7 @@ O projeto é uma **base**: todos os personagens são placeholders procedurais qu
 
 ## História
 
-O Sino do Eco guardava a memória do mundo até o Arauto parti-lo em três. Você sobe ao Mosteiro do Eco e encontra o **Mestre Oren**, último guardião do Sino. Nas Profundezas, quem cai vira eco e volta ao mosteiro, e é isso que justifica o ciclo do roguelite. Os diálogos ficam em `src/story.js`.
+O Sino do Eco guardava a memória do mundo até o Arauto parti-lo em três. Você sobe ao Mosteiro do Eco e encontra o **Mestre Rafael**, último guardião do Sino. Nas Profundezas, quem cai vira eco e volta ao mosteiro, e é isso que justifica o ciclo do roguelite. Os diálogos ficam em `src/story.js`.
 
 ## Caminhos (classes)
 
@@ -16,6 +16,25 @@ O Sino do Eco guardava a memória do mundo até o Arauto parti-lo em três. Voc�
 | **Punho Fechado — Punhos** | 3ª pessoa, câmera de ombro | Combos de soco com mira automática no inimigo próximo, guarda, +1 esquiva, 3º golpe abala o chão |
 
 O caminho é escolhido no prólogo com o Mestre e pode ser trocado falando com ele no mosteiro.
+
+## Árvores de habilidade
+
+Cada caminho tem a sua árvore, com 3 ramos de 4 nós comprados em ordem com Ecos (pelo menu ou com o Mestre Rafael). O fim de cada ramo é uma técnica:
+
+| Caminho | Ramo | Técnica final |
+|---|---|---|
+| Mão Aberta | Arcano (dano, perfuração, orbe maior) | **[R] Cadeia de Raios**: raio que salta entre até 4 inimigos |
+| Mão Aberta | Selo (aparo, reflexo, selo explosivo) | **[V] Tempestade de Ecos**: 3 s de raios sobre os inimigos |
+| Mão Aberta | Fluxo (lampejo, cargas, runas na esquiva) | **Eco Temporal**: câmera lenta maior e dardos críticos nela |
+| Punho Fechado | Punho (dano, ritmo, terremoto) | **[R] Investida do Dragão**: avanço invulnerável que atravessa inimigos |
+| Punho Fechado | Guarda (aparo, contragolpe, quebra-ossos) | **[V] Cem Punhos**: 2 s de socos em sequência, invulnerável |
+| Punho Fechado | Passo (velocidade, esquiva dupla, contra-esquiva) | **Corpo de Pedra**: +40 de vida e 15% menos dano |
+
+O golpe supremo **[V]** gasta a **Ressonância**, que enche com aparos (+20), esquivas perfeitas (+25) e golpes que acertam. Dá para redistribuir os pontos de um caminho a qualquer momento. Os dados ficam em `src/skills.js`.
+
+## Protagonista
+
+O protagonista do Caminho do Punho Fechado (e do menu) é um modelo próprio convertido de STL por `tools/stl_to_segmented_glb.py` para `assets/models/protagonista.glb`. Veja [docs/MODELOS.md](docs/MODELOS.md).
 
 ## Como rodar
 
@@ -34,6 +53,8 @@ Qualquer servidor estático serve (precisa ser via HTTP por causa dos módulos E
 | Atacar / lançar (ritmo de 3) | Botão esquerdo |
 | Aparar (selo ou guarda) | Botão direito ou F |
 | Falar / interagir | E |
+| Habilidade do caminho | R |
+| Golpe supremo | V |
 | Esquiva (dash com invencibilidade) | Shift (ou Q) |
 | Pular | Espaço |
 | Pausar | Esc |
@@ -74,13 +95,15 @@ src/game.js       loop, estados, mosteiro, salas, resolução de combate
 src/player.js     jogador + câmeras (1ª pessoa do mago, 3ª pessoa dos punhos)
 src/models.js     camada de modelos: manifesto .glb + placeholders procedurais
 src/story.js      lore e diálogos
+src/skills.js     árvores de habilidade dos dois caminhos
 src/dialogue.js   caixa de diálogo com escolhas
 src/enemies.js    inimigos, ataques, projéteis, ondas de choque
 src/world.js      geração das salas, mosteiro e portais
 src/data.js       classes, bênçãos, melhorias, tipos de sala
 src/fx.js         partículas, números de dano, efeitos de tela
 src/audio.js      efeitos sonoros sintetizados (WebAudio)
-assets/models/    coloque aqui os .glb (ver docs/MODELOS.md)
+assets/models/    modelos .glb (protagonista.glb incluído; ver docs/MODELOS.md)
+tools/            conversor STL em T-pose → .glb segmentado
 ```
 
 Para depurar, o objeto `window.game` fica exposto no console.

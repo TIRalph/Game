@@ -2,9 +2,12 @@ import { Game } from './game.js';
 import { initAudio } from './audio.js';
 import { CLASSES, META_UPGRADES, writeSave } from './data.js';
 import { preloadModels } from './models.js';
+import { SKILL_TREES, ABILITY_INFO, nodeStatus, skillLevel, buySkill, resetSkills } from './skills.js';
 
 const $ = (id) => document.getElementById(id);
-const screens = ['menu', 'meta', 'help', 'choice', 'pause', 'end'];
+const screens = ['menu', 'meta', 'help', 'choice', 'pause', 'end', 'skills'];
+let skillsReturn = null;
+let skillsTab = 'mago';
 let metaReturn = null;
 function show(id) { for (const s of screens) $(s).classList.toggle('hidden', s !== id); }
 function hideAll() { for (const s of screens) $(s).classList.add('hidden'); }
@@ -19,6 +22,7 @@ const ui = {
     el.classList.toggle('hidden', !t);
     if (t) el.textContent = t;
   },
+  openSkills(classId, onClose) { skillsReturn = onClose; skillsTab = classId || 'mago'; renderSkills(); show('skills'); },
   openMeta(onClose) { metaReturn = onClose; renderMeta(); show('meta'); },
   weapon(t) { $('weapon-name').textContent = t; },
   roomName(t) { $('room-name').textContent = t; },
@@ -77,6 +81,21 @@ const ui = {
     $('fury').textContent = st.fury && p.fury > 0 ? `FÚRIA x${p.fury} (+${p.fury * 10}% dano)` : (p.critNext ? 'PRÓXIMO GOLPE CRÍTICO' : '');
     $('ecos').textContent = '◈ ' + (game.run.isHub ? game.save.ecos : game.run.ecos);
     $('parry-ring').classList.toggle('on', p.isParrying());
+    // Habilidades [R] e [V]
+    const r = $('ab-r'), v = $('ab-v');
+    r.classList.toggle('hidden', !st.abilityR);
+    if (st.abilityR) {
+      const info = ABILITY_INFO[st.abilityR];
+      r.children[1].textContent = p.cdR > 0 ? `${info.name} ${p.cdR.toFixed(1)}s` : info.name;
+      r.children[2].style.width = (p.cdR / info.cooldown * 100) + '%';
+      r.classList.toggle('cooling', p.cdR > 0);
+    }
+    v.classList.toggle('hidden', !st.ultimate);
+    if (st.ultimate) {
+      v.children[1].textContent = `${ABILITY_INFO[st.ultimate].name} ${Math.floor(p.res)}%`;
+      v.querySelector('.res-fill').style.width = p.res + '%';
+      v.classList.toggle('ready', p.res >= 100);
+    }
     if (game.boss && !game.boss.dead) {
       $('boss-hp-fill').style.width = (game.boss.hp / game.boss.hpMax * 100) + '%';
       $('boss-posture-fill').style.width = (game.boss.posture / game.boss.postureMax * 100) + '%';
@@ -100,6 +119,37 @@ function renderMenu() {
   $('menu-path').textContent = cls ? `Caminho atual: ${cls.path} (${cls.name})` : 'Um novo aprendiz chega ao Mosteiro do Eco.';
   $('meta-ecos').textContent = `◈ ${save.ecos} Ecos · Expedições: ${save.runs} · Vitórias: ${save.wins}`;
 }
+
+function renderSkills() {
+  const save = game.save;
+  const tree = SKILL_TREES[skillsTab];
+  $('skills-tabs').innerHTML = Object.entries(SKILL_TREES).map(([id, t]) =>
+    `<button class="tab ${id === skillsTab ? 'sel' : ''}" data-tab="${id}">${t.name}${save.story.classe === id ? ' (atual)' : ''}</button>`).join('');
+  $('skills-tabs').querySelectorAll('button').forEach(b => b.onclick = () => { skillsTab = b.dataset.tab; resetArmed = false; renderSkills(); });
+  $('skills-ecos').textContent = `Você tem ◈ ${save.ecos} Ecos`;
+  const labels = { max: 'Aprendida', disponivel: 'Clique para aprender', caro: 'Ecos insuficientes', bloqueado: 'Aprenda a anterior' };
+  $('skills-tree').innerHTML = tree.branches.map(b => `
+    <div class="branch">
+      <h3>${b.name}</h3><p class="bd">${b.desc}</p>
+      ${b.nodes.map(n => {
+        const st = nodeStatus(save, skillsTab, n.id);
+        const lvl = skillLevel(save, skillsTab, n.id);
+        const max = n.cost.length;
+        const cost = lvl < max ? `◈ ${n.cost[lvl]} · ` : '';
+        return `<div class="node ${st} ${lvl > 0 && lvl < max ? 'parcial' : ''}" data-n="${n.id}" tabindex="0">
+          ${n.tag ? `<span class="tag">${n.tag === 'passiva' ? 'PASSIVA' : '[' + n.tag + ']'}</span>` : ''}
+          <div class="t"><span>${n.name}</span><span>${max > 1 ? '●'.repeat(lvl) + '○'.repeat(max - lvl) : (lvl ? '●' : '○')}</span></div>
+          <div class="d">${n.desc}</div>
+          <div class="k">${cost}${labels[st]}</div>
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+  $('skills-tree').querySelectorAll('.node').forEach(el => el.onclick = () => {
+    if (buySkill(save, skillsTab, el.dataset.n)) { writeSave(save); renderSkills(); }
+  });
+  $('btn-skills-reset').textContent = resetArmed ? 'Confirmar: devolver todos os Ecos deste caminho' : 'Redistribuir pontos';
+}
+let resetArmed = false;
 
 function renderMeta() {
   const save = game.save;
@@ -137,6 +187,19 @@ $('btn-meta-back').onclick = () => {
   renderMenu(); show('menu');
 };
 $('btn-help').onclick = () => show('help');
+$('btn-skills').onclick = () => { skillsReturn = null; skillsTab = game.save.story.classe || 'mago'; resetArmed = false; renderSkills(); show('skills'); };
+$('btn-skills-back').onclick = () => {
+  resetArmed = false;
+  if (skillsReturn) { const cb = skillsReturn; skillsReturn = null; hideAll(); cb(); return; }
+  renderMenu(); show('menu');
+};
+$('btn-skills-reset').onclick = () => {
+  if (!resetArmed) { resetArmed = true; renderSkills(); return; }
+  resetArmed = false;
+  resetSkills(game.save, skillsTab);
+  writeSave(game.save);
+  renderSkills();
+};
 $('btn-help-back').onclick = () => show('menu');
 $('btn-resume').onclick = () => game.resume();
 $('btn-quit').onclick = () => { if (game.run && game.run.isHub) toMenu(); else if (game.run) game.endRun(false); };
@@ -158,4 +221,4 @@ show('menu');
 $('btn-start').disabled = true;
 $('loading').classList.remove('hidden');
 preloadModels((k, key) => { $('loading').textContent = `Carregando modelos… ${Math.round(k * 100)}% (${key})`; })
-  .finally(() => { $('btn-start').disabled = false; $('loading').classList.add('hidden'); });
+  .finally(() => { $('btn-start').disabled = false; $('loading').classList.add('hidden'); game.showMenuHero(); });

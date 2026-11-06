@@ -17,6 +17,19 @@ export class FX {
     this.hurtV = 0;
     this.nums = [];
     this.rings = [];
+    this.beams = [];
+  }
+
+  // Raio/feixe entre pontos (some em `dur` segundos).
+  beam(points, color = 0xbfa8ff, dur = 0.25) {
+    const geo = new THREE.BufferGeometry().setFromPoints(points);
+    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, linewidth: 2 }));
+    this.scene.add(line);
+    // Segundo traço deslocado para dar espessura
+    const jag = points.map((p, i) => (i > 0 && i < points.length - 1 ? p.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, 0)) : p.clone()));
+    const line2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints(jag), line.material);
+    this.scene.add(line2);
+    this.beams.push({ lines: [line, line2], t: 0, dur });
   }
 
   burst(pos, color, count = 12, speed = 6, life = 0.5, size = 1) {
@@ -82,6 +95,12 @@ export class FX {
       r.m.material.opacity = 1 - k;
       if (k >= 1) { this.scene.remove(r.m); r.m.geometry.dispose(); r.m.material.dispose(); this.rings.splice(i, 1); }
     }
+    for (let i = this.beams.length - 1; i >= 0; i--) {
+      const b = this.beams[i];
+      b.t += realDt;
+      b.lines[0].material.opacity = 1 - b.t / b.dur;
+      if (b.t >= b.dur) { for (const l of b.lines) { this.scene.remove(l); l.geometry.dispose(); } b.lines[0].material.dispose(); this.beams.splice(i, 1); }
+    }
     const v = new THREE.Vector3();
     const w = innerWidth, h = innerHeight;
     for (let i = this.nums.length - 1; i >= 0; i--) {
@@ -117,5 +136,7 @@ export class FX {
     this.rings = [];
     for (const n of this.nums) n.el.remove();
     this.nums = [];
+    for (const b of this.beams) for (const l of b.lines) this.scene.remove(l);
+    this.beams = [];
   }
 }

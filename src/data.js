@@ -43,6 +43,9 @@ export function baseStats(meta) {
     killHeal: 0,
     thorns: 0,
     moveSpeed: 1,
+    // Árvore de habilidades (src/skills.js)
+    pierce: 0, orbMult: 1, abilityR: null, ultimate: null, dodgeDistMult: 1, dodgeMine: 0,
+    ecoTemporal: false, counterHit: false, quakeMult: 1, contraEsquiva: false, reflectSpeed: 1, damageTaken: 1,
   };
 }
 
@@ -81,7 +84,7 @@ export const META_UPGRADES = [
 
 const SAVE_KEY = 'eco-da-lamina-save-v1';
 export function loadSave() {
-  const def = { ecos: 0, meta: {}, runs: 0, wins: 0, deaths: 0, best: 0, story: { prologo: false, classe: null, last: null, bosses: 0 } };
+  const def = { ecos: 0, meta: {}, runs: 0, wins: 0, deaths: 0, best: 0, story: { prologo: false, classe: null, last: null, bosses: 0 }, skills: {} };
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
@@ -107,7 +110,7 @@ export const ROOM_TYPES = {
   profundezas: { name: 'As Profundezas', color: 0xe8c27a, reward: 'none', desc: 'Iniciar expedição' },
 };
 
-export const HUB_THEME = { name: 'Mosteiro do Eco', fog: 0x1a1c26, floor: 0x45403a, wall: 0x56504a, accent: 0xe8c27a, light: 0xffe2b8, hemi: 0.7 };
+export const HUB_THEME = { name: 'Mosteiro do Eco', fog: 0x1a1c26, floor: 0x45403a, wall: 0x56504a, accent: 0xe8c27a, light: 0xffe2b8, hemi: 0.6, points: 70 };
 
 export const FLOORS = [
   { name: 'Cripta Esquecida', fog: 0x120f1c, floor: 0x2a2638, wall: 0x3a3450, accent: 0x7a6cff, light: 0x9a8cff },

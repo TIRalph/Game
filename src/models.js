@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /*
  * CAMADA DE MODELOS
@@ -33,7 +34,17 @@ export const ESTADOS = [
 // Para trocar um placeholder por um modelo, preencha `url` (ex.: 'assets/models/mestre.glb').
 export const MODEL_MANIFEST = {
   // Jogador
-  aprendiz_punhos: { url: null, scale: 1, rotY: Math.PI, offsetY: 0, anims: {}, sockets: {} },
+  // Protagonista: convertido de um STL em T-pose por tools/stl_to_segmented_glb.py.
+  // rig 'segmented' = cada parte do .glb é presa a uma articulação do rig procedural.
+  aprendiz_punhos: {
+    url: 'assets/models/protagonista.glb', rig: 'segmented', height: 1.8,
+    joints: { hipY: 0.7642, chestY: 0.5844, neckY: 0.1528, shoulderX: 0.2338, upperArm: 0.2607, foreArm: 0.241, hipX: 0.1259, thigh: 0.4226 },
+  },
+  // Mesmo modelo, usado no menu e em cenas.
+  protagonista: {
+    url: 'assets/models/protagonista.glb', rig: 'segmented', height: 1.8,
+    joints: { hipY: 0.7642, chestY: 0.5844, neckY: 0.1528, shoulderX: 0.2338, upperArm: 0.2607, foreArm: 0.241, hipX: 0.1259, thigh: 0.4226 },
+  },
   aprendiz_mago_maos: { url: null, scale: 1, rotY: Math.PI, offset: [0, 0, 0], anims: {}, sockets: {} }, // braços em 1ª pessoa
   // NPCs
   mestre: { url: null, scale: 1, rotY: Math.PI, offsetY: 0, anims: {}, sockets: {} },
@@ -77,7 +88,10 @@ export function hasModel(key) { return !!cache[key]; }
 
 export function createCharacter(key, procOpts = {}) {
   const cfg = MODEL_MANIFEST[key];
-  if (cfg && cache[key]) return new GltfCharacter(cache[key], cfg);
+  if (cfg && cache[key]) {
+    if (cfg.rig === 'segmented') return new SegmentedCharacter(cache[key], cfg, procOpts);
+    return new GltfCharacter(cache[key], cfg);
+  }
   return new ProceduralCharacter(procOpts);
 }
 
@@ -219,15 +233,27 @@ export class ProceduralCharacter {
     this.eyeIdle = new THREE.Color(o.eyeColor ?? 0xffe0a0);
     const glowMat = this.glowMat = new THREE.MeshStandardMaterial({ color: 0x222222, emissive: this.eyeIdle.clone(), emissiveIntensity: 1.2 });
     const bladeMat = this.bladeMat = new THREE.MeshStandardMaterial({ color: 0x9a9aa8, metalness: 0.7, roughness: 0.3, emissive: new THREE.Color(0), emissiveIntensity: 0 });
-    const mesh = (geo, mat, parent, y = 0, x = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+    // Sem `skeletonOnly`, desenha o boneco de primitivas; com ele, só cria as articulações
+    // (usado pelo SegmentedCharacter, que pendura as partes de um modelo real nelas).
+    const prim = !o.skeletonOnly;
+    const mesh = (geo, mat, parent, y = 0, x = 0, z = 0) => {
+      const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true;
+      if (prim) parent.add(m); else geo.dispose();
+      return m;
+    };
+    // Posição das articulações (metros). Padrão proporcional à altura; um modelo pode trazer as suas.
+    const J = this.J = Object.assign({
+      hipY: h * 0.5, chestY: h * 0.28, neckY: h * 0.04, shoulderX: h * 0.2,
+      upperArm: h * 0.16, foreArm: h * 0.16, hipX: h * 0.065, thigh: h * 0.25,
+    }, o.joints || {});
 
     // Quadril e tronco
-    this.hips = new THREE.Group(); this.hips.position.y = h * 0.5; this.body.add(this.hips);
+    this.hips = new THREE.Group(); this.hips.position.y = J.hipY; this.body.add(this.hips);
     this.torso = new THREE.Group(); this.hips.add(this.torso);
     mesh(new THREE.CylinderGeometry(h * 0.12, h * 0.1, h * 0.12, 8), bodyMat, this.hips, h * 0.0);
     mesh(new THREE.CylinderGeometry(h * 0.15, h * 0.12, h * 0.3, 8), bodyMat, this.torso, h * 0.16);
-    this.chest = new THREE.Group(); this.chest.position.y = h * 0.28; this.torso.add(this.chest);
-    this.headG = new THREE.Group(); this.headG.position.y = h * 0.04; this.chest.add(this.headG);
+    this.chest = new THREE.Group(); this.chest.position.y = J.chestY; this.torso.add(this.chest);
+    this.headG = new THREE.Group(); this.headG.position.y = J.neckY; this.chest.add(this.headG);
     mesh(new THREE.SphereGeometry(h * 0.1, 12, 10), skinMat, this.headG, h * 0.1);
     const eyeGeo = new THREE.BoxGeometry(h * 0.04, h * 0.018, h * 0.02);
     mesh(eyeGeo, glowMat, this.headG, h * 0.11, -h * 0.035, -h * 0.09);
@@ -235,28 +261,31 @@ export class ProceduralCharacter {
 
     // Braços: ombro → cotovelo → mão (soquete)
     const arm = (side) => {
-      const sh = new THREE.Group(); sh.position.set(side * h * 0.2, 0, 0); this.chest.add(sh);
+      const sh = new THREE.Group(); sh.position.set(side * J.shoulderX, 0, 0); this.chest.add(sh);
       mesh(new THREE.CylinderGeometry(h * 0.04, h * 0.035, h * 0.16, 6), bodyMat, sh, -h * 0.08);
-      const el = new THREE.Group(); el.position.y = -h * 0.16; sh.add(el);
+      const el = new THREE.Group(); el.position.y = -J.upperArm; sh.add(el);
       mesh(new THREE.CylinderGeometry(h * 0.035, h * 0.03, h * 0.15, 6), skinMat, el, -h * 0.075);
-      const hand = new THREE.Group(); hand.position.y = -h * 0.16; el.add(hand);
-      if (o.fighter) mesh(new THREE.BoxGeometry(h * 0.07, h * 0.07, h * 0.07), new THREE.MeshStandardMaterial({ color: o.gloveColor ?? 0xb04a2a, roughness: 0.6 }), hand);
-      else mesh(new THREE.SphereGeometry(h * 0.035, 6, 5), skinMat, hand);
+      const hand = new THREE.Group(); hand.position.y = -J.foreArm; el.add(hand);
+      if (o.fighter) {
+        const g = new THREE.Mesh(new THREE.BoxGeometry(h * 0.07, h * 0.07, h * 0.07), new THREE.MeshStandardMaterial({ color: o.gloveColor ?? 0xb04a2a, roughness: 0.6 }));
+        g.castShadow = true; hand.add(g); // luvas aparecem também sobre modelos reais
+      } else mesh(new THREE.SphereGeometry(h * 0.035, 6, 5), skinMat, hand);
       return { sh, el, hand };
     };
     this.armL = arm(-1); this.armR = arm(1);
 
     // Pernas
     const leg = (side) => {
-      const hip = new THREE.Group(); hip.position.set(side * h * 0.065, 0, 0); this.hips.add(hip);
+      const hip = new THREE.Group(); hip.position.set(side * J.hipX, 0, 0); this.hips.add(hip);
       mesh(new THREE.CylinderGeometry(h * 0.05, h * 0.042, h * 0.25, 6), bodyMat, hip, -h * 0.125);
-      const knee = new THREE.Group(); knee.position.y = -h * 0.25; hip.add(knee);
+      const knee = new THREE.Group(); knee.position.y = -J.thigh; hip.add(knee);
       mesh(new THREE.CylinderGeometry(h * 0.04, h * 0.035, h * 0.25, 6), bodyMat, knee, -h * 0.125);
       return { hip, knee };
     };
     this.legL = leg(-1); this.legR = leg(1);
 
-    // Acessórios
+    // Acessórios (só no boneco de primitivas)
+    if (!prim) { this.initState(); return; }
     if (o.robe) {
       const robeMat = new THREE.MeshStandardMaterial({ color: o.robe, roughness: 0.9, side: THREE.DoubleSide });
       mesh(new THREE.CylinderGeometry(h * 0.14, h * 0.24, h * 0.48, 10, 1, true), robeMat, this.hips, -h * 0.22);
@@ -271,6 +300,10 @@ export class ProceduralCharacter {
       if (o.weapon === 'staff') { wm.rotation.x = 0; }
     }
 
+    this.initState();
+  }
+
+  initState() {
     this.state = 'idle'; this.t = 0; this.dur = 1;
     this.flinchK = 0;
     this.walk = 0;
@@ -408,6 +441,53 @@ export class ProceduralCharacter {
   dispose() {
     this.root.removeFromParent();
     this.root.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Modelo segmentado: partes rígidas (.glb sem esqueleto) penduradas no rig procedural.
+// Nomes esperados dos nós no .glb: hips, torso, head, upperArmL/R, foreArmL/R, thighL/R, shinL/R.
+// Cada parte deve estar no espaço local da sua articulação, com braços apontando para -Y.
+// ---------------------------------------------------------------------------
+const creased = new WeakMap(); // geometria original -> com normais suavizadas (feito uma vez)
+const PART_TO_JOINT = {
+  hips: c => c.hips, torso: c => c.torso, head: c => c.headG,
+  upperArmL: c => c.armL.sh, upperArmR: c => c.armR.sh, foreArmL: c => c.armL.el, foreArmR: c => c.armR.el,
+  thighL: c => c.legL.hip, thighR: c => c.legR.hip, shinL: c => c.legL.knee, shinR: c => c.legR.knee,
+};
+
+export class SegmentedCharacter extends ProceduralCharacter {
+  constructor(gltf, cfg, procOpts = {}) {
+    super({ ...procOpts, height: cfg.height || procOpts.height || 1.8, joints: cfg.joints, skeletonOnly: true });
+    this.mats = [];
+    const seen = new Map();
+    gltf.scene.traverse(o => {
+      if (!o.isMesh) return;
+      const name = PART_TO_JOINT[o.name] ? o.name : o.parent && o.parent.name;
+      const joint = PART_TO_JOINT[name];
+      if (!joint) return;
+      const m = o.clone();
+      // Materiais clonados por personagem (para o brilho de aviso não vazar para outros)
+      if (!seen.has(o.material)) { const c = o.material.clone(); seen.set(o.material, c); this.mats.push(c); }
+      m.material = seen.get(o.material);
+      if (!creased.has(o.geometry)) creased.set(o.geometry, o.geometry.attributes.normal ? o.geometry : toCreasedNormals(o.geometry, Math.PI / 5));
+      m.geometry = creased.get(o.geometry);
+      m.position.set(0, 0, 0); m.rotation.set(0, 0, 0); m.scale.set(1, 1, 1);
+      m.castShadow = true;
+      joint(this).add(m);
+    });
+    for (const m of this.mats) m.userData.baseEmissive = m.emissive.clone();
+  }
+
+  // A geometria é compartilhada pelo cache: só remove da cena.
+  dispose() { this.root.removeFromParent(); }
+
+  setGlow(color, k = 1) {
+    super.setGlow(color, k);
+    for (const m of this.mats) {
+      if (color) { m.emissive.copy(color); m.emissiveIntensity = k * 0.25; }
+      else { m.emissive.copy(m.userData.baseEmissive); m.emissiveIntensity = 1; }
+    }
   }
 }
 

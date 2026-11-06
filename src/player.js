@@ -44,7 +44,8 @@ class FirstPersonView {
 
     const h = this.hands;
     if (!h) return;
-    if (p.attackT >= 0) {
+    if (p.stormT > 0) { if (h.state !== 'cast3' || h.t > 0.3) h.play('cast3', { duration: 0.3 }); }
+    else if (p.attackT >= 0) {
       if (this.lastAttack !== p.attackId) { this.lastAttack = p.attackId; h.play('cast' + (p.combo + 1), { duration: p.attackSwingTime() }); }
     } else if (p.parryT >= 0) { if (h.state !== 'parry') h.play('parry', { duration: 0.35 }); }
     else if (p.isDashing()) h.play('dodge', { duration: DODGE_TIME });
@@ -79,6 +80,10 @@ class ThirdPersonView {
 
     // Animação
     if (p.dead) b.play('death', { duration: 0.8 });
+    else if (p.flurryT > 0) {
+      const beat = Math.floor(p.flurryT / 0.09);
+      if (beat !== this.beat) { this.beat = beat; b.play(beat % 2 ? 'attack1' : 'attack2', { duration: 0.09 }); }
+    } else if (p.dragonT > 0) { if (b.state !== 'lunge') b.play('lunge', { duration: 0.3 }); }
     else if (p.isDashing()) { if (b.state !== 'dodge') b.play('dodge', { duration: DODGE_TIME }); }
     else if (p.attackT >= 0) {
       if (this.lastAttack !== p.attackId) { this.lastAttack = p.attackId; b.play('attack' + (p.combo + 1), { duration: p.attackSwingTime() }); }
@@ -154,6 +159,12 @@ export class Player {
     this.parryFlash = 0;
     this.dead = false;
     this.locked = false; // sem controle (diálogos)
+    this.res = 0;        // Ressonância (0-100) para o golpe supremo
+    this.cdR = 0;        // recarga da habilidade [R]
+    this.flurryT = 0;    // Cem Punhos ativo
+    this.dragonT = 0;    // Investida do Dragão ativa
+    this.stormT = 0;     // Tempestade de Ecos ativa
+    this.counterT = 0;   // janela do Contragolpe
     this.thirdPerson = this.cls.view === 'third' && this.hasClass;
     this.view = this.thirdPerson
       ? new ThirdPersonView(this, this.camera, game.scene)
@@ -217,8 +228,13 @@ export class Player {
     const moving = wish.lengthSq() > 0;
 
     const attacking = this.attackT >= 0;
-    const speed = 7.2 * this.stats.moveSpeed * (attacking ? 0.55 : 1) * (this.parryT >= 0 && this.parryT < 0.3 ? 0.6 : 1);
-    const canAct = !this.locked && !this.dead;
+    const speed = 7.2 * this.stats.moveSpeed * (attacking ? 0.55 : 1) * (this.parryT >= 0 && this.parryT < 0.3 ? 0.6 : 1) * (this.flurryT > 0 ? 0.35 : 1);
+    const canAct = !this.locked && !this.dead && this.flurryT <= 0;
+    this.cdR = Math.max(0, this.cdR - dt);
+    this.counterT = Math.max(0, this.counterT - dt);
+    if (this.flurryT > 0) { this.flurryT -= dt; this.iframes = Math.max(this.iframes, 0.05); }
+    if (this.dragonT > 0) this.dragonT -= dt;
+    if (this.stormT > 0) this.stormT -= dt;
 
     if (canAct && (input.consume('ShiftLeft') || input.consume('ShiftRight') || input.consume('KeyQ'))) {
       this.tryDodge(moving ? wish : (this.thirdPerson ? this.aimForward().negate() : f.clone().negate()));
@@ -228,7 +244,8 @@ export class Player {
       this.dodgeT += dt;
       if (this.dodgeT < DODGE_TIME) {
         const k = 1 - this.dodgeT / DODGE_TIME;
-        this.pos.addScaledVector(this.dodgeDir, (this.cls.dodgeSpeed || 19) * (0.4 + k) * dt);
+        const sp = this.dragonT > 0 ? 32 : (this.cls.dodgeSpeed || 19) * this.stats.dodgeDistMult;
+        this.pos.addScaledVector(this.dodgeDir, sp * (0.4 + k) * dt);
       }
       if (this.dodgeT > 0.5) this.dodgeT = -1;
     }
@@ -314,6 +331,18 @@ export class Player {
     this.parryT = -1;
     sfx.dodge();
     if (this.cls.id === 'mago' && this.hasClass) this.game.fx.burst(this.pos.clone().setY(1.2), this.cls.color, 10, 3, 0.4);
+    this.game.onPlayerDodge();
+  }
+
+  // Investida do Dragão: esquiva longa na direção do corpo, sem gastar carga.
+  dragonDash() {
+    this.faceAim();
+    this.dodgeT = 0;
+    this.dodgeId = (this.dodgeId || 0) + 1;
+    this.iframes = 0.42;
+    this.dragonT = 0.3;
+    this.dodgeDir.copy(this.aimForward());
+    this.attackT = -1; this.parryT = -1; this.queuedAttack = false;
   }
 
   startAttack() {

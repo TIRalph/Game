@@ -26,13 +26,35 @@ mestre: {
 
 4. Recarregue a página. O menu mostra "Carregando modelos…" e libera o botão quando terminar. Se o arquivo falhar, aparece um aviso no console e o placeholder continua no lugar.
 
+## Modelo sem esqueleto (STL / T-pose): rig segmentado
+
+O protagonista veio de um `.stl` em T-pose, sem ossos nem animação. Para esse caso existe o rig **segmentado**: a malha é cortada em partes do corpo e cada parte é presa a uma articulação do rig procedural. Assim o modelo usa as mesmas poses dos placeholders.
+
+```bash
+python3 tools/stl_to_segmented_glb.py meu_modelo.stl assets/models/meu_modelo.glb
+```
+
+O script lê STL ASCII ou binário (Z para cima, frente para -Y, braços abertos em X), corta pelas alturas do dicionário `JOINTS` no topo do arquivo, pinta cada região com as cores de `MATERIALS` e imprime as juntas em metros. Copie essas juntas para o manifesto:
+
+```js
+aprendiz_punhos: {
+  url: 'assets/models/protagonista.glb', rig: 'segmented', height: 1.8,
+  joints: { hipY: 0.7642, chestY: 0.5844, neckY: 0.1528, shoulderX: 0.2338, upperArm: 0.2607, foreArm: 0.241, hipX: 0.1259, thigh: 0.4226 },
+},
+```
+
+Para outro modelo em T-pose, ajuste `JOINTS` (altura do quadril, ombros, pescoço, joelho etc. nas unidades do STL). Um jeito rápido de achar os valores é abrir o STL num visualizador e medir. Nomes esperados dos nós no `.glb`: `hips`, `torso`, `head`, `upperArmL/R`, `foreArmL/R`, `thighL/R`, `shinL/R`.
+
+Quando houver uma versão com esqueleto e animações (Mixamo, Blender), basta trocar a entrada para o formato normal (sem `rig: 'segmented'`) e mapear os clipes em `anims`.
+
 ## Chaves disponíveis
 
 | Chave | Quem é | Câmera |
 |---|---|---|
-| `aprendiz_punhos` | Protagonista no Caminho do Punho Fechado | 3ª pessoa (corpo inteiro) |
+| `aprendiz_punhos` | Protagonista no Caminho do Punho Fechado (já usa `protagonista.glb`) | 3ª pessoa (corpo inteiro) |
+| `protagonista` | Protagonista no fundo do menu | — |
 | `aprendiz_mago_maos` | Braços do protagonista no Caminho da Mão Aberta | 1ª pessoa (preso à câmera; use `offset: [x, y, z]`) |
-| `mestre` | Mestre Oren (NPC do mosteiro) | — |
+| `mestre` | Mestre Rafael (NPC do mosteiro) | — |
 | `boneco` | Boneco de treino | — |
 | `carcereiro`, `atirador`, `bruto`, `duelista` | Inimigos comuns | — |
 | `arauto` | Chefe | — |
