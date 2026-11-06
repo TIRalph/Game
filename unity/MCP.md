@@ -1,7 +1,8 @@
 # Unity-MCP (controlar a Unity por IA)
 
 O projeto já vem com o plugin [Unity-MCP](https://github.com/IvanMurzak/Unity-MCP) (`com.ivanmurzak.unity.mcp` 1.7.0, via OpenUPM) em `Packages/manifest.json`.
-A Unity baixa o plugin sozinha quando você abre o projeto.
+Também vem com a extensão [AI Animation](https://github.com/IvanMurzak/Unity-AI-Animation) (`com.ivanmurzak.unity.mcp.animation` 2.1.0), que deixa a IA criar e editar AnimationClips e Animator Controllers (por exemplo, montar o Animator do protagonista com os estados `idle`, `run`, `attack1`...).
+A Unity baixa tudo sozinha quando você abre o projeto.
 
 ## No seu PC
 
