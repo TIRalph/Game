@@ -11,6 +11,88 @@ const W = +(process.argv[3] || 1920), H = +(process.argv[4] || 1080);
 const onlyShots = (process.argv.find(a => a.startsWith('--shots=')) || '').slice(8).split(',').filter(Boolean);
 const every = +((process.argv.find(a => a.startsWith('--every=')) || '--every=1').slice(8)); // pular quadros em testes
 const FPS = 30;
+const KEYART = process.argv.includes('--keyart'); // artes limpas (sem HUD) para capa e banner
+
+// Cenas de arte: prepara, avança `warm` quadros chamando step(f) e salva um PNG.
+const KEYARTS = [
+  {
+    id: 'keyart-arauto', warm: 40,
+    setup: () => {
+      T.room('punhos', 2, 'chefe', {});
+      game.roomState.started = 0;
+      game.spawnWave(game.roomState.waves[0]);
+      const b = game.boss, p = game.player;
+      p.pos.set(1.2, 0, 3.5); b.pos.set(0, 0, -1.5); b.cooldown = 99;
+      T.hud(false);
+    },
+    step: (f) => {
+      const b = game.boss, p = game.player;
+      if (f === 18) b.startAttack(b.def.attacks[0]);
+      p.yaw = Math.atan2(-(b.pos.x - p.pos.x), -(b.pos.z - p.pos.z)); p.facing = p.yaw;
+      game.input.keys.clear();
+      T.step();
+      p.pos.set(1.2, 0, 3.5);
+      T.cam(T.V(3.6, 0.9, 7.2), T.V(0.2, 2.4, -1.5));
+    },
+  },
+  {
+    id: 'keyart-mago', warm: 46,
+    setup: () => {
+      T.room('mago', 2, 'combate', T.allSkills('mago'));
+      game.roomState.waves = [[{ t: 'carcereiro' }, { t: 'duelista' }, { t: 'carcereiro' }, { t: 'bruto' }]];
+      game.roomState.started = 0.01;
+      T.step(2);
+      const p = game.player;
+      game.enemies.forEach((e, i) => { e.pos.set(p.pos.x - 3 + i * 2, 0, p.pos.z - 6 - (i % 2) * 1.5); e.cooldown = 99; });
+      T.hud(false);
+    },
+    step: (f) => {
+      const p = game.player;
+      const e = game.enemies[1];
+      p.yaw = Math.atan2(-(e.pos.x - p.pos.x), -(e.pos.z - p.pos.z)); p.pitch = 0.02;
+      game.input.keys.clear();
+      if (f === 40) game.input.pressed.add('KeyR');
+      if (f === 38) game.input.pressed.add('Mouse0');
+      T.step();
+    },
+  },
+  {
+    id: 'keyart-mosteiro', warm: 30,
+    setup: () => {
+      T.clean();
+      T.setSave('punhos', {});
+      game.enterHub();
+      T.hud(false); T.hideScreens();
+    },
+    step: (f) => {
+      const p = game.player, m = game.master;
+      p.pos.set(-0.8, 0, 2.4);
+      p.yaw = p.facing = Math.atan2(-(m.pos.x - p.pos.x), -(m.pos.z - p.pos.z));
+      m.talking = true;
+      T.step();
+      T.cam(T.V(3.2, 1.5, 6.2), T.V(-1.4, 1.6, -1.6));
+    },
+  },
+  {
+    id: 'keyart-forja', warm: 26,
+    setup: () => {
+      T.room('punhos', 1, 'elite', T.allSkills('punhos'));
+      game.roomState.waves = [[{ t: 'carcereiro' }, { t: 'bruto' }, { t: 'carcereiro' }, { t: 'duelista' }]];
+      game.roomState.started = 0.01;
+      T.step(2);
+      const p = game.player;
+      game.enemies.forEach((e, i) => { e.pos.set(p.pos.x - 2.5 + i * 1.7, 0, p.pos.z - 3.2 - (i % 2) * 0.8); e.cooldown = 99; });
+      T.hud(false);
+    },
+    step: (f) => {
+      const p = game.player;
+      if (f === 10) { p.res = 100; game.input.pressed.add('KeyV'); }
+      game.input.keys.clear();
+      T.step();
+      T.cam(p.pos.clone().add(T.V(2.6, 1.3, 2.4)), p.pos.clone().add(T.V(-0.6, 1.2, -2.6)));
+    },
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Código que roda dentro da página: utilidades do diretor
@@ -394,6 +476,18 @@ const SHOTS = [
   await page.evaluate(PAGE_LIB);
   await page.evaluate(() => T.ready);
   await page.evaluate(() => { game.renderer.setAnimationLoop(null); game.input.locked = true; });
+
+  if (KEYART) {
+    await page.evaluate(() => { document.getElementById('dmg-layer').style.display = 'none'; });
+    for (const k of KEYARTS) {
+      await page.evaluate(`(${k.setup})()`);
+      for (let f = 0; f < k.warm; f++) await page.evaluate(`T.frame = ${f}; (${k.step})(${f}); game.fx.calloutTimer = 0; document.getElementById('callout').classList.remove('show'); game.renderer.render(game.scene, game.camera);`);
+      await page.screenshot({ path: path.join(OUT, k.id + '.png') });
+      console.log(k.id);
+    }
+    await browser.close();
+    return;
+  }
 
   let frame = 0;
   const shotsInfo = [];
