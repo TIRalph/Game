@@ -14,25 +14,51 @@ namespace Eco
         public HashSet<Enemy> hitSet;
 
         readonly GameManager game;
-        readonly Transform t;
-        readonly Material mat;
+        readonly Transform t, core, halo;
+        readonly Material coreMat, haloMat, trailMat;
+        readonly TrailRenderer trail;
         readonly Light light;
 
+        // Visual sem depender de emissão: núcleo quase branco, halo aditivo na cor, rastro e luz.
         public Projectile(GameManager game, Vector3 pos, Vector3 vel, float damage, bool unparryable, Enemy owner)
         {
             this.game = game; this.pos = pos; this.vel = vel; this.damage = damage; this.unparryable = unparryable; this.owner = owner;
-            var color = EcoMath.Hex(unparryable ? 0xff8a00 : 0xff2a3a);
-            mat = Mats.NewLit(Color.black);
-            Mats.SetEmission(mat, color * 2);
-            var g = Mats.Prim(PrimitiveType.Sphere, game.World, mat, pos, new Vector3(0.32f, 0.32f, 1f), "projetil");
-            g.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            t = g.transform;
-            light = g.AddComponent<Light>();
-            light.type = LightType.Point; light.color = color; light.intensity = 2; light.range = 4;
+            t = new GameObject("projetil").transform;
+            t.SetParent(game.World, false);
+            t.position = pos;
+            coreMat = Mats.Glow(Color.white, Mats.RadialTex);
+            core = Mats.Prim(PrimitiveType.Quad, t, coreMat, Vector3.zero, Vector3.one * 0.35f, "nucleo").transform;
+            haloMat = Mats.Glow(Color.white, Mats.RadialTex);
+            halo = Mats.Prim(PrimitiveType.Quad, t, haloMat, Vector3.zero, Vector3.one * 1.1f, "halo").transform;
+            foreach (var r in t.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            trail = t.gameObject.AddComponent<TrailRenderer>();
+            trailMat = Mats.Glow(Color.white, Mats.SoftLineTex);
+            trail.material = trailMat;
+            trail.time = 0.18f;
+            trail.minVertexDistance = 0.05f;
+            trail.widthCurve = AnimationCurve.Linear(0, 0.3f, 1, 0);
+            trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            light = t.gameObject.AddComponent<Light>();
+            light.type = LightType.Point; light.intensity = 2.5f; light.range = 5;
+            SetColor(EcoMath.Hex(unparryable ? 0xff8a00 : 0xff2a3a));
         }
 
-        public void SetColor(Color c) { Mats.SetEmission(mat, c * 2); light.color = c; }
-        public void SetScale(Vector3 s) { t.localScale = s; }
+        public void SetColor(Color c)
+        {
+            coreMat.color = Color.Lerp(c, Color.white, 0.55f);
+            haloMat.color = new Color(c.r, c.g, c.b, 0.9f);
+            trail.startColor = new Color(c.r, c.g, c.b, 0.9f);
+            trail.endColor = new Color(c.r, c.g, c.b, 0f);
+            light.color = c;
+        }
+
+        // Escala relativa ao tamanho padrão (1 = flecha/dardo normal).
+        public void SetScale(float k)
+        {
+            core.localScale = Vector3.one * 0.35f * k;
+            halo.localScale = Vector3.one * 1.1f * k;
+            trail.widthMultiplier = k;
+        }
 
         public void Reflect(Vector3 dir, float mult, bool homing)
         {
@@ -56,7 +82,10 @@ namespace Eco
             }
             pos += vel * dt;
             t.position = pos;
-            if (vel.sqrMagnitude > 1e-4f) t.rotation = Quaternion.LookRotation(vel);
+            // Núcleo e halo sempre virados para a câmera
+            var camRot = game.cam.transform.rotation;
+            core.rotation = camRot;
+            halo.rotation = camRot * Quaternion.Euler(0, 0, Time.time * 360f);
 
             var room = game.room;
             if (Mathf.Abs(pos.x) > room.half || Mathf.Abs(pos.z) > room.half || pos.y < 0 || life <= 0) { Kill(); return; }

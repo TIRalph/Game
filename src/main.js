@@ -65,6 +65,7 @@ const ui = {
   },
   hud(game) {
     const p = game.player, st = game.run.stats;
+    drawTelegraphs(game);
     const hk = Math.max(0, p.hp / st.maxHp) * 100;
     $('hp-bar').style.width = hk + '%';
     $('hp-ghost').style.width = hk + '%';
@@ -102,6 +103,54 @@ const ui = {
     }
   },
 };
+
+// Aviso de ataque: anel que fecha até o instante do golpe (branco = aperte agora),
+// "APARE" (vermelho) ou "ESQUIVE" (laranja); fora da tela vira seta na borda.
+const teleCanvas = $('tele');
+const teleCtx = teleCanvas.getContext('2d');
+function drawTelegraphs(game) {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const w = innerWidth, h = innerHeight;
+  if (teleCanvas.width !== Math.round(w * dpr) || teleCanvas.height !== Math.round(h * dpr)) { teleCanvas.width = Math.round(w * dpr); teleCanvas.height = Math.round(h * dpr); }
+  const g = teleCtx;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const cam = game.camera;
+  for (const e of game.enemies) {
+    if (e.dead || !e.atk || (e.state !== 'windup' && e.state !== 'active')) continue;
+    if (e.pos.distanceTo(game.player.pos) > 30) continue;
+    const remain = e.state === 'active' ? 0 : e.atk.windupTime - e.t;
+    const now = remain < 0.14;
+    const col = e.atk.unparryable ? '#ff8a00' : '#ff2a2a';
+    const top = e.pos.clone(); top.y = e.baseY + e.def.height * (e.elite ? 1.15 : 1) + 0.3;
+    const local = top.clone().applyMatrix4(cam.matrixWorldInverse);
+    const v = top.clone().project(cam);
+    const sx = (v.x + 1) / 2 * w, sy = (1 - v.y) / 2 * h;
+    const inside = local.z < 0 && sx > 20 && sx < w - 20 && sy > 20 && sy < h - 20;
+    g.save();
+    g.shadowColor = col; g.shadowBlur = 12;
+    if (inside) {
+      const r = 16 + 46 * Math.min(1, remain / 0.9);
+      g.lineWidth = now ? 5 : 3; g.strokeStyle = now ? '#fff' : col;
+      g.beginPath(); g.arc(sx, sy, r, 0, Math.PI * 2); g.stroke();
+      g.lineWidth = 3; g.strokeStyle = col;
+      g.beginPath(); g.arc(sx, sy, 14, 0, Math.PI * 2); g.stroke();
+      g.fillStyle = now ? '#fff' : col; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = `900 ${now ? 26 : 20}px Segoe UI, sans-serif`; g.fillText('!', sx, sy + 1);
+      g.font = '800 13px Segoe UI, sans-serif'; g.fillStyle = col;
+      g.fillText(e.atk.unparryable ? 'ESQUIVE' : 'APARE', sx, sy - r - 12);
+    } else {
+      let dx = local.x, dy = -local.y;
+      if (local.z > 0 && Math.hypot(dx, dy) < 0.5) dy = 1;
+      const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+      const ex = w / 2 + dx * (Math.min(w, h) / 2 - 40), ey = h / 2 + dy * (Math.min(w, h) / 2 - 40);
+      g.translate(ex, ey); g.rotate(Math.atan2(dy, dx));
+      g.fillStyle = now ? '#fff' : col;
+      g.beginPath(); g.moveTo(16, 0); g.lineTo(-10, -12); g.lineTo(-10, 12); g.closePath(); g.fill();
+    }
+    g.restore();
+  }
+}
 
 function pickChoice(i) {
   if (!choiceHandler || !choiceItems[i]) return;

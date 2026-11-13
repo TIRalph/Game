@@ -5,7 +5,7 @@ namespace Eco
     // Mãos do mago em primeira pessoa (placeholder). Ficam presas à câmera.
     public class MageHands : ICharacterVisual
     {
-        class Hand { public Transform t, tip; public Light light; }
+        class Hand { public Transform t, tip, orb; public Light light; }
 
         public Transform Root { get; }
         public string State { get; private set; } = "idle";
@@ -61,7 +61,10 @@ namespace Eco
             var tip = new GameObject("ponta").transform; tip.SetParent(g, false); tip.localPosition = new Vector3(0, -0.03f, 0.17f);
             var lg = new GameObject("luz"); lg.transform.SetParent(tip, false);
             var light = lg.AddComponent<Light>(); light.type = LightType.Point; light.color = arcane; light.range = 2; light.intensity = 0;
-            return new Hand { t = g, tip = tip, light = light };
+            // Brilho na ponta dos dedos (aditivo, não depende de emissão)
+            var orb = Mats.Prim(PrimitiveType.Quad, tip, Mats.Glow(arcane, Mats.RadialTex), Vector3.zero, Vector3.one * 0.1f, "brilho").transform;
+            orb.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return new Hand { t = g, tip = tip, light = light, orb = orb };
         }
 
         static Texture2D RuneTexture(Color c)
@@ -143,6 +146,9 @@ namespace Eco
             float a = Mathf.Min(1, dt * 25);
             Apply(R.t, Rp, a, bx, by); Apply(L.t, Lp, a, bx, by);
             R.light.intensity = gR * 0.5f; L.light.intensity = gL * 0.5f;
+            R.orb.localScale = Vector3.one * (0.06f + gR * 0.035f);
+            L.orb.localScale = Vector3.one * (0.06f + gL * 0.035f);
+            R.orb.rotation = L.orb.rotation = Root.rotation * Quaternion.Euler(0, 0, time * 200);
             Mats.SetEmission(palmGlow, arcane * (1 + Mathf.Max(gR, gL) * 0.5f));
         }
 

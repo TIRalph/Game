@@ -33,6 +33,8 @@ namespace Eco
         readonly Leg legL, legR;
         readonly Material glowMat, bladeMat;
         readonly List<Material> partMats = new List<Material>();
+        // Materiais que mudam de cor no aviso de ataque (funciona mesmo sem emissão/bloom)
+        readonly List<(Material m, Color baseColor)> tintMats = new List<(Material, Color)>();
         float t, dur = 1, time, walk, flinchK;
         Pose p = Pose.Blank;
 
@@ -52,6 +54,9 @@ namespace Eco
             var skinMat = Mats.NewLit(o.skin ?? o.color, 0f, 0.2f);
             glowMat = Mats.NewLit(EcoMath.Hex(0x222222));
             bladeMat = Mats.NewLit(EcoMath.Hex(0x9a9aa8), 0.7f, 0.7f);
+            tintMats.Add((bodyMat, bodyMat.color));
+            tintMats.Add((skinMat, skinMat.color));
+            tintMats.Add((bladeMat, bladeMat.color));
             SetGlow(null);
 
             hips = Child("quadril", body, new Vector3(0, J.hipY, 0));
@@ -153,6 +158,7 @@ namespace Eco
                     m = Mats.NewLit(model.materials[part.material], 0.05f, 0.25f);
                     mats[part.material] = m;
                     partMats.Add(m);
+                    tintMats.Add((m, m.color));
                 }
                 var g = new GameObject(part.name);
                 g.transform.SetParent(joint, false);
@@ -195,12 +201,15 @@ namespace Eco
                 Mats.SetEmission(glowMat, color.Value * k);
                 Mats.SetEmission(bladeMat, color.Value * k * 0.6f);
                 foreach (var m in partMats) Mats.SetEmission(m, color.Value * k * 0.25f);
+                float amt = Mathf.Min(0.6f, 0.08f * k);
+                foreach (var (m, baseColor) in tintMats) m.color = Color.Lerp(baseColor, color.Value, amt);
             }
             else
             {
                 Mats.SetEmission(glowMat, o.eyeColor * 1.2f);
                 Mats.SetEmission(bladeMat, Color.black);
                 foreach (var m in partMats) Mats.SetEmission(m, Color.black);
+                foreach (var (m, baseColor) in tintMats) m.color = baseColor;
             }
         }
 

@@ -120,6 +120,7 @@ namespace Eco
             cam.nearClipPlane = 0.05f;
             cam.farClipPlane = 200;
             cam.clearFlags = CameraClearFlags.SolidColor;
+            fx.cam = cam.transform;
 
             var sg = new GameObject("Sol");
             sg.transform.SetParent(transform, false);

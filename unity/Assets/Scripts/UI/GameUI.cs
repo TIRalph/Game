@@ -156,6 +156,8 @@ namespace Eco
                 Shadowed(new Rect(sp.x - 150, sp.y, 300, 24), d.label2, center, Text);
                 Shadowed(new Rect(sp.x - 150, sp.y + 22, 300, 24), d.label3, small.Center(), Muted);
             }
+            Telegraphs();
+
             // Números de dano
             foreach (var n in g.fx.numbers)
             {
@@ -232,6 +234,48 @@ namespace Eco
         }
 
         static readonly Color Cyan = EcoMath.Hex(0x5ce1ff);
+        static readonly Color TellRed = EcoMath.Hex(0xff2a2a), TellOrange = EcoMath.Hex(0xff8a00);
+
+        // Aviso de ataque: anel que fecha até o instante do golpe (fica branco = aperte agora),
+        // com "APARE" (vermelho) ou "ESQUIVE" (laranja). Fora da tela vira uma seta na borda.
+        void Telegraphs()
+        {
+            foreach (var e in g.enemies)
+            {
+                if (e.dead || !(e.InWindup || e.InActive)) continue;
+                if (Vector3.Distance(e.pos, g.player.pos) > 30) continue;
+                Color c = e.Unparryable ? TellOrange : TellRed;
+                float remain = e.InActive ? 0 : e.WindupRemaining;
+                bool now = remain < Enemy.ParryMoment;
+                bool onScreen = WorldToGui(new Vector3(e.pos.x, e.TopY + 0.3f, e.pos.z), out var sp);
+                bool inside = onScreen && sp.x > 20 && sp.x < W - 20 && sp.y > 20 && sp.y < H - 20;
+                if (inside)
+                {
+                    float r = 16 + 46 * Mathf.Clamp01(remain / 0.9f);
+                    Ring(sp, r, now ? Color.white : c, 40, now ? 5 : 3);
+                    Ring(sp, 14, c, 24, 3);
+                    var big = new GUIStyle(callout) { fontSize = now ? 30 : 24 };
+                    Shadowed(new Rect(sp.x - 20, sp.y - 20, 40, 40), "!", big, now ? Color.white : c);
+                    string word = e.Unparryable ? "ESQUIVE" : "APARE";
+                    Shadowed(new Rect(sp.x - 60, sp.y - r - 26, 120, 22), word, small.Center().Bold(), c);
+                }
+                else
+                {
+                    // Seta na borda apontando para o atacante
+                    var center = new Vector2(W / 2, H / 2);
+                    // Direção no espaço da câmera (x direita, y cima); na tela o y cresce para baixo
+                    var local = g.cam.transform.InverseTransformPoint(new Vector3(e.pos.x, e.TopY, e.pos.z));
+                    var dir = new Vector2(local.x, -local.y);
+                    if (local.z < 0 && dir.sqrMagnitude < 0.25f) dir = new Vector2(dir.x, 1); // logo atrás: seta embaixo
+                    dir = dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector2.down;
+                    var edge = center + dir * Mathf.Min(W / 2 - 40, H / 2 - 40);
+                    var mtx = GUI.matrix;
+                    GUIUtility.RotateAroundPivot(Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg + 90, edge * scale);
+                    Shadowed(new Rect(edge.x - 20, edge.y - 20, 40, 40), "▲", new GUIStyle(callout) { fontSize = 30 }, now ? Color.white : c);
+                    GUI.matrix = mtx;
+                }
+            }
+        }
 
         void Slot(Rect r, string key, string text, float fill, Color barColor, bool ready)
         {
@@ -242,12 +286,12 @@ namespace Eco
             Box(new Rect(r.x + 1, r.yMax - 4, (r.width - 2) * Mathf.Clamp01(fill), 3), barColor);
         }
 
-        void Ring(Vector2 c, float r, Color col)
+        void Ring(Vector2 c, float r, Color col, int dots = 24, float size = 3)
         {
-            for (int i = 0; i < 24; i++)
+            for (int i = 0; i < dots; i++)
             {
-                float a = i / 24f * Mathf.PI * 2;
-                Box(new Rect(c.x + Mathf.Cos(a) * r - 1.5f, c.y + Mathf.Sin(a) * r - 1.5f, 3, 3), col);
+                float a = i / (float)dots * Mathf.PI * 2;
+                Box(new Rect(c.x + Mathf.Cos(a) * r - size / 2, c.y + Mathf.Sin(a) * r - size / 2, size, size), col);
             }
         }
 

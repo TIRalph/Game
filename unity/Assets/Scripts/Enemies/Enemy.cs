@@ -31,10 +31,19 @@ namespace Eco
         readonly Transform area;
         readonly Material areaMat;
         readonly Transform aura;
+        // Aviso de ataque visível em qualquer pipeline: ícone "!" sobre a cabeça + luz no corpo
+        readonly Transform alertIcon;
+        readonly Material alertMat;
+        readonly Light tellLight;
 
         public bool IsStunned => state == St.Stagger;
         public bool InWindup => state == St.Windup;
+        public bool InActive => state == St.Active;
+        public bool Unparryable => atk != null && atk.unparryable;
         public float WindupRemaining => atkWindup - t;
+        public float WindupProgress => atkWindup > 0 ? Mathf.Clamp01(t / atkWindup) : 1;
+        public float TopY => baseY + def.height * (elite ? 1.15f : 1f);
+        public const float ParryMoment = 0.14f; // últimos instantes: o "brilho" do golpe
         public Vector3 Center => new Vector3(pos.x, baseY + def.height * 0.6f, pos.z);
         public Vector3 ForwardDir => EcoMath.Forward(facing);
 
@@ -63,6 +72,15 @@ namespace Eco
                 aura = Mats.Prim(PrimitiveType.Cylinder, model.Root, Mats.UnlitShared(EcoMath.Hex(0xff7af5)), new Vector3(0, 0.05f, 0), new Vector3(def.radius * 2.6f, 0.01f, def.radius * 2.6f), "aura").transform;
             }
             model.Root.position = pos;
+
+            alertMat = Mats.Glow(Red, Mats.AlertTex, overlay: true);
+            alertIcon = Mats.Prim(PrimitiveType.Quad, game.World, alertMat, pos, Vector3.one, "aviso").transform;
+            alertIcon.gameObject.SetActive(false);
+            var lg = new GameObject("luz_aviso");
+            lg.transform.SetParent(model.Root, false);
+            lg.transform.localPosition = new Vector3(0, def.height * 0.65f, 0.3f);
+            tellLight = lg.AddComponent<Light>();
+            tellLight.type = LightType.Point; tellLight.range = 3 + def.height; tellLight.intensity = 0;
 
             areaMat = Mats.NewTransparent(new Color(Orange.r, Orange.g, Orange.b, 0));
             area = Mats.Prim(PrimitiveType.Cylinder, game.World, areaMat, new Vector3(pos.x, 0.02f, pos.z), new Vector3(1, 0.005f, 1), "area").transform;
@@ -232,6 +250,8 @@ namespace Eco
             else if (state == St.Move) model.Play(moved > 0.6f ? "run" : "idle");
             model.Tick(dt, moved);
 
+            UpdateTelegraph(glowColor);
+
             if (glowK > 0) model.SetGlow(glowColor, glowK);
             else if (state == St.Stagger) model.SetGlow(Yellow, 2 + Mathf.Sin(stunT * 30));
             else model.SetGlow(null);
@@ -243,6 +263,22 @@ namespace Eco
                 game.fx.AddShake(0.6f);
                 speed *= 1.25f;
             }
+        }
+
+        void UpdateTelegraph(Color c)
+        {
+            bool tell = (state == St.Windup || state == St.Active) && atk != null;
+            if (alertIcon.gameObject.activeSelf != tell) alertIcon.gameObject.SetActive(tell);
+            if (!tell) { tellLight.intensity = 0; return; }
+            float k = state == St.Windup ? WindupProgress : 1;
+            bool now = state == St.Active || WindupRemaining < ParryMoment;
+            alertMat.color = now ? Color.Lerp(c, Color.white, 0.55f) : c;
+            float size = Mathf.Max(0.55f, def.height * 0.3f) * (0.75f + 0.45f * k) * (now ? 1.35f : 1f);
+            alertIcon.position = new Vector3(pos.x, TopY + 0.55f + size * 0.5f, pos.z);
+            alertIcon.rotation = game.cam.transform.rotation;
+            alertIcon.localScale = Vector3.one * (size + Mathf.Sin(Time.time * 18f) * 0.03f);
+            tellLight.color = c;
+            tellLight.intensity = (1.5f + 4f * k) * (now ? 2f : 1f);
         }
 
         void Execute()
@@ -342,6 +378,8 @@ namespace Eco
             dead = true; hp = 0;
             Sfx.Play("death");
             var c = areaMat.color; c.a = 0; areaMat.color = c;
+            alertIcon.gameObject.SetActive(false);
+            tellLight.intensity = 0;
             model.SetGlow(null);
             model.Play("death", 0.6f);
             game.OnEnemyKilled(this);
@@ -353,6 +391,7 @@ namespace Eco
             removed = true;
             model.Dispose();
             if (area) Object.Destroy(area.gameObject);
+            if (alertIcon) Object.Destroy(alertIcon.gameObject);
         }
     }
 

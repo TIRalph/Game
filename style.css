@@ -119,3 +119,5 @@ input[type=range] { vertical-align: middle; }
 #menu .sub, #menu p { max-width: 460px; }
 #menu .row { justify-content: flex-start; max-width: 520px; }
 @media (max-width: 760px) { #menu { align-items: center; padding-left: 16px; background: radial-gradient(ellipse at center, rgba(20,16,40,.88), rgba(4,4,8,.96)); } #menu .row { justify-content: center; } }
+
+#tele { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }

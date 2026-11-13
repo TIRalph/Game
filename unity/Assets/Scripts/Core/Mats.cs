@@ -64,6 +64,82 @@ namespace Eco
             return m;
         }
 
+        // ---------- Brilho (shader Eco/Glow, aditivo e sem luz) ----------
+        static Shader glowSh, glowOverlaySh;
+        static Texture2D radial, softLine, alert;
+
+        // Material de brilho próprio (a cor pode mudar em tempo de jogo).
+        public static Material Glow(Color c, Texture tex = null, bool overlay = false)
+        {
+            var sh = overlay ? (glowOverlaySh ? glowOverlaySh : glowOverlaySh = Shader.Find("Eco/GlowOverlay"))
+                             : (glowSh ? glowSh : glowSh = Shader.Find("Eco/Glow"));
+            var m = new Material(sh != null ? sh : LineShader) { color = c };
+            if (tex != null) m.mainTexture = tex;
+            return m;
+        }
+
+        // Disco com borda suave (halos, núcleo dos projéteis, faíscas).
+        public static Texture2D RadialTex
+        {
+            get
+            {
+                if (radial) return radial;
+                const int S = 64;
+                radial = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < S; y++)
+                    for (int x = 0; x < S; x++)
+                    {
+                        float d = new Vector2(x - S / 2f + 0.5f, y - S / 2f + 0.5f).magnitude / (S / 2f);
+                        float a = Mathf.Clamp01(1 - d);
+                        radial.SetPixel(x, y, new Color(1, 1, 1, a * a * (0.6f + 0.4f * a)));
+                    }
+                radial.Apply();
+                return radial;
+            }
+        }
+
+        // Faixa com bordas suaves para LineRenderer e rastros (u ao longo, v na largura).
+        public static Texture2D SoftLineTex
+        {
+            get
+            {
+                if (softLine) return softLine;
+                softLine = new Texture2D(4, 32, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < 32; y++)
+                {
+                    float v = 1 - Mathf.Abs(y - 15.5f) / 16f;
+                    for (int x = 0; x < 4; x++) softLine.SetPixel(x, y, new Color(1, 1, 1, Mathf.Pow(v, 1.6f)));
+                }
+                softLine.Apply();
+                return softLine;
+            }
+        }
+
+        // Ícone de aviso: "!" dentro de um losango.
+        public static Texture2D AlertTex
+        {
+            get
+            {
+                if (alert) return alert;
+                const int S = 64;
+                alert = new Texture2D(S, S, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+                for (int y = 0; y < S; y++)
+                    for (int x = 0; x < S; x++)
+                    {
+                        float u = (x - S / 2f + 0.5f) / (S / 2f), v = (y - S / 2f + 0.5f) / (S / 2f);
+                        float dia = Mathf.Abs(u) + Mathf.Abs(v);
+                        float edge = Mathf.Clamp01(1 - Mathf.Abs(dia - 0.85f) * 9f);
+                        float fill = dia < 0.85f ? 0.25f : 0;
+                        bool bar = Mathf.Abs(u) < 0.09f && v > -0.12f && v < 0.5f;
+                        bool dot = new Vector2(u, v + 0.3f).magnitude < 0.1f;
+                        float a = Mathf.Max(edge, Mathf.Max(fill, bar || dot ? 1 : 0));
+                        alert.SetPixel(x, y, new Color(1, 1, 1, a));
+                    }
+                alert.Apply();
+                return alert;
+            }
+        }
+
         public static GameObject Prim(PrimitiveType t, Transform parent, Material mat, Vector3 pos, Vector3 scale, string name = null)
         {
             var g = GameObject.CreatePrimitive(t);

@@ -28,7 +28,16 @@ Assets/
   Resources/
     Models/protagonista.bytes   protagonista convertido do STL
     Story/dialogos.json         toda a lore e os diálogos
+    Shaders/EcoGlow*.shader     brilho aditivo sem luz (projéteis, raios, avisos)
 ```
+
+## Avisos de ataque e efeitos
+
+Os avisos não dependem de bloom nem de emissão de material, então aparecem igual em qualquer pipeline:
+
+- Inimigo preparando golpe: ícone **"!"** sobre a cabeça (vermelho = **apare**, laranja = **esquive**), luz colorida no corpo e o corpo inteiro tingido na cor.
+- Na tela: um anel que **fecha até o instante do golpe** e fica **branco** quando é a hora de apertar, com a palavra APARE ou ESQUIVE. Atacantes fora da tela aparecem como seta na borda.
+- Dardos, flechas, raios e partículas usam o shader `Eco/Glow` (aditivo), com núcleo claro, halo, rastro e luz.
 
 ## Colocar modelos e animações
 

@@ -84,7 +84,7 @@ namespace Eco
                 {
                     var dir = p.AimDir3;
                     var pr = new Projectile(this, p.Eye + dir * 0.8f - Vector3.up * 0.3f, dir * 26, w.damage * st.dmgMult * 0.8f, false, null) { reflected = true, playerShot = true };
-                    pr.SetColor(Color.white); pr.SetScale(new Vector3(1.6f, 0.15f, 0.4f));
+                    pr.SetColor(Color.white); pr.SetScale(1.6f);
                     projectiles.Add(pr);
                 }
             }
@@ -112,7 +112,7 @@ namespace Eco
                     aoe = heavy ? 2.4f * st.orbMult : 0,
                 };
                 pr.SetColor(heavy ? EcoMath.Hex(0xd8c8ff) : w.color);
-                if (heavy) pr.SetScale(new Vector3(0.64f, 0.64f, 1.5f));
+                if (heavy) pr.SetScale(2f);
                 projectiles.Add(pr);
             }
             Shoot(0);
