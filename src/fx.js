@@ -21,15 +21,36 @@ export class FX {
   }
 
   // Raio/feixe entre pontos (some em `dur` segundos).
+  // Relâmpago com volume: caminho em zigue-zague, tubo largo na cor + núcleo branco (linhas de
+  // WebGL têm sempre 1 pixel, por isso o raio usa malhas).
   beam(points, color = 0xbfa8ff, dur = 0.25) {
-    const geo = new THREE.BufferGeometry().setFromPoints(points);
-    const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, linewidth: 2 }));
-    this.scene.add(line);
-    // Segundo traço deslocado para dar espessura
-    const jag = points.map((p, i) => (i > 0 && i < points.length - 1 ? p.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.3, (Math.random() - 0.5) * 0.3, 0)) : p.clone()));
-    const line2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints(jag), line.material);
-    this.scene.add(line2);
-    this.beams.push({ lines: [line, line2], t: 0, dur });
+    const path = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i], b = points[i + 1];
+      const len = a.distanceTo(b);
+      const n = Math.max(2, Math.min(24, Math.ceil(len / 0.7)));
+      const dir = b.clone().sub(a).normalize();
+      let side = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0));
+      if (side.lengthSq() < 0.01) side.set(1, 0, 0);
+      side.normalize();
+      for (let k = 0; k < n; k++) {
+        const p = a.clone().lerp(b, k / n);
+        if (k > 0) p.addScaledVector(side, (Math.random() * 2 - 1) * Math.min(0.45, len * 0.06)).add(new THREE.Vector3(0, (Math.random() * 2 - 1) * Math.min(0.3, len * 0.04), 0));
+        path.push(p);
+      }
+    }
+    path.push(points[points.length - 1].clone());
+    const curve = new THREE.CatmullRomCurve3(path, false, 'catmullrom', 0);
+    const segs = path.length * 3;
+    const mk = (r, c, op) => {
+      const m = new THREE.Mesh(new THREE.TubeGeometry(curve, segs, r, 6, false),
+        new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false }));
+      this.scene.add(m);
+      return m;
+    };
+    const glow = mk(0.16, color, 0.55), core = mk(0.04, 0xffffff, 1);
+    for (let i = 1; i < points.length; i++) this.burst(points[i].clone(), color, 6, 4, 0.3, 1.4);
+    this.beams.push({ lines: [glow, core], ops: [0.55, 1], t: 0, dur });
   }
 
   burst(pos, color, count = 12, speed = 6, life = 0.5, size = 1) {
@@ -98,8 +119,8 @@ export class FX {
     for (let i = this.beams.length - 1; i >= 0; i--) {
       const b = this.beams[i];
       b.t += realDt;
-      b.lines[0].material.opacity = 1 - b.t / b.dur;
-      if (b.t >= b.dur) { for (const l of b.lines) { this.scene.remove(l); l.geometry.dispose(); } b.lines[0].material.dispose(); this.beams.splice(i, 1); }
+      b.lines.forEach((l, j) => { l.material.opacity = (b.ops ? b.ops[j] : 1) * (1 - b.t / b.dur); });
+      if (b.t >= b.dur) { for (const l of b.lines) { this.scene.remove(l); l.geometry.dispose(); l.material.dispose(); } this.beams.splice(i, 1); }
     }
     const v = new THREE.Vector3();
     const w = innerWidth, h = innerHeight;

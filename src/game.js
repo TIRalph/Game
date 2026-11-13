@@ -132,6 +132,7 @@ export class Game {
       kills: 0, parries: 0, perfectDodges: 0, rooms: 0, startTime: performance.now(),
     };
     this.buildRoom('hub', HUB_THEME);
+    if (this.player) this.player.dispose(); // senão as mãos do mago ficam presas na câmera
     this.player = null;
     this.makePlayer(this.currentClass(), this.run.stats);
     const p = this.player;

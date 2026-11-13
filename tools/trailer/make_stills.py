@@ -2,7 +2,8 @@
 """
 Screenshots e capas para a página do jogo (itch.io, Game Jolt etc.) a partir dos quadros do trailer.
 
-Uso: python3 tools/trailer/make_stills.py <pasta-da-gravacao> <pasta-de-saida>
+Uso: python3 tools/trailer/make_stills.py <pasta-da-gravacao> <pasta-de-saida> [pasta-das-artes]
+(as artes vêm de: node tools/trailer/record.cjs <pasta> 1920 1080 --keyart)
 Escolhe quadros por cena (shots.json) e gera:
   screenshot-*.png (1920x1080), capa-630x500.png (capa do itch.io), banner-1920x480.png
 """
@@ -89,9 +90,18 @@ def main():
         made.append((name, img))
         print(dst)
 
+    # Artes limpas (sem HUD), se existirem
+    art = {}
+    if len(sys.argv) > 3:
+        for k in ('arauto', 'mago', 'mosteiro', 'forja'):
+            p = os.path.join(sys.argv[3], f'keyart-{k}.png')
+            if os.path.exists(p):
+                art[k] = Image.open(p).convert('RGB')
+                art[k].save(os.path.join(out, f'arte-{k}.png'), optimize=True)
+
     # Capa 630x500 (itch.io) e banner, a partir das melhores cenas
     by = dict(made)
-    base = by.get('chefe-arauto') or by.get('aparo') or made[0][1]
+    base = art.get('arauto') or by.get('chefe-arauto') or by.get('aparo') or made[0][1]
     W, H = base.size
     crop_w = int(H * 630 / 500)
     cx = W // 2
@@ -106,7 +116,7 @@ def main():
     title(cover, 'LÂMINA', 64, (34, 412))
     cover.convert('RGB').save(os.path.join(out, 'capa-630x500.png'))
 
-    banner_src = by.get('punhos-cem-punhos') or base
+    banner_src = art.get('mago') or by.get('punhos-cem-punhos') or base
     bw, bh = banner_src.size
     band = banner_src.crop((0, int(bh * 0.25), bw, int(bh * 0.25) + int(bw * 480 / 1920))).resize((1920, 480), Image.LANCZOS).convert('RGBA')
     shade = Image.new('RGBA', band.size, (0, 0, 0, 0))

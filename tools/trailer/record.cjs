@@ -22,7 +22,7 @@ const KEYARTS = [
       game.roomState.started = 0;
       game.spawnWave(game.roomState.waves[0]);
       const b = game.boss, p = game.player;
-      p.pos.set(1.2, 0, 3.5); b.pos.set(0, 0, -1.5); b.cooldown = 99;
+      p.pos.set(-1.6, 0, 2.2); b.pos.set(0.4, 0, -1.2); b.cooldown = 99;
       T.hud(false);
     },
     step: (f) => {
@@ -31,12 +31,12 @@ const KEYARTS = [
       p.yaw = Math.atan2(-(b.pos.x - p.pos.x), -(b.pos.z - p.pos.z)); p.facing = p.yaw;
       game.input.keys.clear();
       T.step();
-      p.pos.set(1.2, 0, 3.5);
-      T.cam(T.V(3.6, 0.9, 7.2), T.V(0.2, 2.4, -1.5));
+      p.pos.set(-1.6, 0, 2.2); b.pos.set(0.4, 0, -1.2);
+      T.cam(T.V(1.7, 0.5, 5.2), T.V(-0.2, 2.3, -1.2));
     },
   },
   {
-    id: 'keyart-mago', warm: 46,
+    id: 'keyart-mago', warm: 42,
     setup: () => {
       T.room('mago', 2, 'combate', T.allSkills('mago'));
       game.roomState.waves = [[{ t: 'carcereiro' }, { t: 'duelista' }, { t: 'carcereiro' }, { t: 'bruto' }]];
@@ -70,7 +70,7 @@ const KEYARTS = [
       p.yaw = p.facing = Math.atan2(-(m.pos.x - p.pos.x), -(m.pos.z - p.pos.z));
       m.talking = true;
       T.step();
-      T.cam(T.V(3.2, 1.5, 6.2), T.V(-1.4, 1.6, -1.6));
+      T.cam(T.V(0.9, 1.55, 3.6), T.V(-2.6, 1.45, -0.6));
     },
   },
   {
@@ -174,6 +174,7 @@ const PAGE_LIB = () => {
   // Inicia uma sala de run já preparada
   T.room = (classe, floor, type, skills) => {
     T.clean();
+    if (game.menuHero) { game.menuHero.dispose(); game.menuHero = null; }
     T.setSave(classe, skills || {});
     game.startRun();
     game.run.floor = floor;
@@ -293,7 +294,7 @@ const SHOTS = [
       const right = T.V(-dir.z, 0, dir.x);
       const k = f / (n - 1);
       T.cam(p.pos.clone().addScaledVector(dir, -1.4 + k * 0.4).addScaledVector(right, 0.75).add(T.V(0, 1.85, 0)), m.pos.clone().add(T.V(0, 1.45, 0)));
-      T.overlay({ bars: 1 });
+      T.overlay({ bars: 0 }); // sem faixas: a caixa de diálogo fica embaixo
     },
   },
   {
@@ -481,7 +482,7 @@ const SHOTS = [
     await page.evaluate(() => { document.getElementById('dmg-layer').style.display = 'none'; });
     for (const k of KEYARTS) {
       await page.evaluate(`(${k.setup})()`);
-      for (let f = 0; f < k.warm; f++) await page.evaluate(`T.frame = ${f}; (${k.step})(${f}); game.fx.calloutTimer = 0; document.getElementById('callout').classList.remove('show'); game.renderer.render(game.scene, game.camera);`);
+      for (let f = 0; f < k.warm; f++) await page.evaluate(`T.frame = ${f}; (${k.step})(${f}); game.fx.calloutTimer = 0; document.getElementById('callout').classList.remove('show'); game.enemies.forEach(e => { if (e.bars) e.bars.visible = false; }); game.renderer.render(game.scene, game.camera);`);
       await page.screenshot({ path: path.join(OUT, k.id + '.png') });
       console.log(k.id);
     }
@@ -489,7 +490,7 @@ const SHOTS = [
     return;
   }
 
-  let frame = 0;
+  let frame = +((process.argv.find(a => a.startsWith('--start=')) || '--start=0').slice(8)); // para regravar uma cena no lugar
   const shotsInfo = [];
   for (const shot of SHOTS) {
     if (onlyShots.length && !onlyShots.includes(shot.id)) continue;

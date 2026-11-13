@@ -19,5 +19,6 @@ START=$(python3 -c "import json;s={x['id']:x for x in json.load(open('$TMP/shots
 ffmpeg -y -loglevel error -ss "$START" -t 7 -i "$OUT/trailer/eco-da-lamina-trailer.mp4" \
   -vf "fps=15,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer" \
   "$OUT/trailer/eco-da-lamina-combate.gif"
-python3 tools/trailer/make_stills.py "$TMP" "$OUT/screenshots"
+if [ ! -f "$TMP/keyart/keyart-arauto.png" ]; then node tools/trailer/record.cjs "$TMP/keyart" 1920 1080 --keyart; fi
+python3 tools/trailer/make_stills.py "$TMP" "$OUT/screenshots" "$TMP/keyart"
 ls -la "$OUT/trailer" "$OUT/screenshots"
