@@ -7,6 +7,8 @@ namespace Eco
     // Para uma UI final, troque por UI Toolkit/uGUI lendo os mesmos campos do GameManager.
     public class GameUI : MonoBehaviour
     {
+        public static bool HideHud;   // trailer: esconde a HUD (o diálogo continua)
+        public static bool HideAll;   // trailer: não desenha nada
         GameManager g;
         float scale, W, H;
         bool stylesReady;
@@ -71,7 +73,7 @@ namespace Eco
 
         void OnGUI()
         {
-            if (g == null) return;
+            if (g == null || HideAll) return;
             InitStyles();
             scale = Screen.height / 720f;
             W = Screen.width / scale; H = 720;
@@ -79,7 +81,7 @@ namespace Eco
 
             if (g.state == GState.Menu) { if (g.overlay != null) Overlay(); else Menu(); return; }
 
-            Hud();
+            if (!HideHud) Hud();
             switch (g.state)
             {
                 case GState.Dialogue: DialogueBox(); break;

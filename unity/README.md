@@ -39,6 +39,16 @@ Os avisos não dependem de bloom nem de emissão de material, então aparecem ig
 - Na tela: um anel que **fecha até o instante do golpe** e fica **branco** quando é a hora de apertar, com a palavra APARE ou ESQUIVE. Atacantes fora da tela aparecem como seta na borda.
 - Dardos, flechas, raios e partículas usam o shader `Eco/Glow` (aditivo), com núcleo claro, halo, rastro e luz.
 
+## Gravar o trailer (dentro da Unity)
+
+Menu **Eco da Lâmina > Gravar trailer (MP4 + imagens)**. O jogo entra no Play sozinho e roda ~63 s de cenas roteirizadas do próprio jogo (um bot apara e esquiva de verdade, com câmera de cinema, cartelas e a trilha `Resources/Trailer/trailer_musica.ogg`). O **Unity Recorder** grava o MP4 1920×1080 com o som do jogo; ao terminar, sai do Play e abre a pasta `Trailer/` na raiz do projeto Unity, com:
+
+- `eco-da-lamina-trailer.mp4`
+- `screenshot-*.png` (com HUD) e `arte-*.png` (só o jogo, sem interface)
+- `capa-630x500.png` (capa do itch.io) e `banner-1920x480.png`
+
+**Eco da Lâmina > Só screenshots, capa e banner** faz o mesmo sem gravar vídeo. O roteiro fica em `Scripts/Trailer/TrailerDirector.cs`. Num build, o argumento `-trailer` também roda o diretor.
+
 ## Colocar modelos e animações
 
 `ModelLibrary.Create(chave)` procura, nesta ordem:

@@ -11,6 +11,10 @@ namespace Eco
     public static class GameInput
     {
         public static float Sensitivity = 1.2f;
+        // Entrada simulada (usada pelo diretor do trailer): teclas seguradas e apertadas neste quadro.
+        public static bool Simulating;
+        public static readonly HashSet<string> SimHeld = new HashSet<string>();
+        public static readonly HashSet<string> SimDown = new HashSet<string>();
         static readonly HashSet<string> consumed = new HashSet<string>();
         static int frame = -1;
 
@@ -32,6 +36,8 @@ namespace Eco
 
         public static bool Held(string k)
         {
+            if (SimHeld.Contains(k)) return true;
+            if (Simulating) return false;
             if (k.StartsWith("Mouse")) { var m = Mouse.current; if (m == null) return false; return k == "Mouse0" ? m.leftButton.isPressed : m.rightButton.isPressed; }
             var kb = Keyboard.current;
             if (kb == null || !keys.TryGetValue(k, out var key)) return false;
@@ -50,6 +56,7 @@ namespace Eco
 
         public static Vector2 MouseDelta()
         {
+            if (Simulating) return Vector2.zero;
             var m = Mouse.current;
             return m == null ? Vector2.zero : m.delta.ReadValue(); // pixels por quadro (y positivo = para cima)
         }
@@ -69,9 +76,9 @@ namespace Eco
             return (KeyCode)System.Enum.Parse(typeof(KeyCode), k);
         }
 
-        public static bool Held(string k) => Input.GetKey(Code(k)) || (k == "Shift" && Input.GetKey(KeyCode.RightShift));
+        public static bool Held(string k) => SimHeld.Contains(k) || (!Simulating && (Input.GetKey(Code(k)) || (k == "Shift" && Input.GetKey(KeyCode.RightShift))));
         static bool DownRaw(string k) => Input.GetKeyDown(Code(k)) || (k == "Shift" && Input.GetKeyDown(KeyCode.RightShift));
-        public static Vector2 MouseDelta() => new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y")) * 10f;
+        public static Vector2 MouseDelta() => Simulating ? Vector2.zero : new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y")) * 10f;
 #endif
 
         // Borda de descida, consumida uma vez por quadro (equivalente ao input.consume do protótipo).
@@ -79,7 +86,8 @@ namespace Eco
         {
             NewFrame();
             if (consumed.Contains(k)) return false;
-            if (!DownRaw(k)) return false;
+            if (SimDown.Remove(k)) { consumed.Add(k); return true; }
+            if (Simulating || !DownRaw(k)) return false;
             consumed.Add(k);
             return true;
         }

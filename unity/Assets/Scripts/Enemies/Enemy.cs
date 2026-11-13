@@ -94,7 +94,7 @@ namespace Eco
             return list[0];
         }
 
-        void StartAttack(AttackDef a)
+        public void StartAttack(AttackDef a)
         {
             atk = a;
             atkWindup = a.windupMax > 0 ? Random.Range(a.windup, a.windupMax) : a.windup;

@@ -129,6 +129,7 @@ namespace Eco
         public bool hit, dead;
         readonly float speed, maxR;
         readonly Vector3 center;
+        public Vector3 Center => center;
         readonly GameManager game;
         readonly LineRenderer lr;
 

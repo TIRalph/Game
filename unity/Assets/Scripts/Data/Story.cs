@@ -94,6 +94,9 @@ namespace Eco
             }
         }
 
+        // Pula para uma fala do diálogo atual (usado no trailer).
+        public void JumpTo(int line) { if (!Active || lines == null) return; idx = Mathf.Clamp(line, 0, lines.Count - 1); Show(); }
+
         public void Tick(float dt) { if (Active && Typing) typed += dt * 120f; }
 
         public void Advance()

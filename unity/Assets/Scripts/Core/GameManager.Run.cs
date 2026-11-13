@@ -140,7 +140,7 @@ namespace Eco
             ["duelo"] = new[] { "open" }, ["flechas"] = new[] { "towers" }, ["santuario"] = new[] { "open" }, ["chefe"] = new[] { "boss" },
         };
 
-        void EnterRoom(string type)
+        public void EnterRoom(string type)
         {
             run.type = type;
             boss = null;
@@ -243,7 +243,7 @@ namespace Eco
             return new Vector3(0, 0, room.half - 4);
         }
 
-        void SpawnWave(List<SpawnSpec> list)
+        public void SpawnWave(List<SpawnSpec> list)
         {
             foreach (var s in list)
             {
@@ -322,9 +322,11 @@ namespace Eco
             }
         }
 
+        public bool keepRoomOpen; // trailer: a sala não termina (sem tela de bênção no meio da cena)
+
         void RoomCleared()
         {
-            if (rs.cleared) return;
+            if (rs.cleared || keepRoomOpen) return;
             rs.cleared = true;
             run.rooms++;
             AddEcos(3);
