@@ -116,15 +116,19 @@ def main():
     title(cover, 'LÂMINA', 64, (34, 412))
     cover.convert('RGB').save(os.path.join(out, 'capa-630x500.png'))
 
-    banner_src = art.get('mago') or by.get('punhos-cem-punhos') or base
+    # Banner 1920x480: arte inteira à direita, fundindo num fundo escuro; título à esquerda
+    banner_src = art.get('forja') or by.get('punhos-cem-punhos') or base
     bw, bh = banner_src.size
-    band = banner_src.crop((0, int(bh * 0.25), bw, int(bh * 0.25) + int(bw * 480 / 1920))).resize((1920, 480), Image.LANCZOS).convert('RGBA')
-    shade = Image.new('RGBA', band.size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shade)
-    for x in range(1920):
-        a = int(max(0, 1 - x / 1100) * 220)
-        sd.line([(x, 0), (x, 480)], fill=(6, 5, 12, a))
-    band.alpha_composite(shade)
+    ah = 480
+    aw = int(bw * ah / bh)
+    pic = banner_src.resize((aw, ah), Image.LANCZOS).convert('RGBA')
+    band = Image.new('RGBA', (1920, 480), (10, 7, 14, 255))
+    mask = Image.new('L', (aw, ah), 255)
+    md = ImageDraw.Draw(mask)
+    fade = int(aw * 0.45)
+    for x in range(fade):
+        md.line([(x, 0), (x, ah)], fill=int(255 * (x / fade) ** 1.4))
+    band.paste(pic, (1920 - aw, 0), mask)
     title(band, 'ECO DA LÂMINA', 112, (90, 150), 'APARE.  ESQUIVE.  LEMBRE.', 34)
     band.convert('RGB').save(os.path.join(out, 'banner-1920x480.png'))
     print('capa e banner prontos')
